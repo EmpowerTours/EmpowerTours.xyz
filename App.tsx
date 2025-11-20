@@ -44,8 +44,8 @@ const PROJECTS: Project[] = [
     name: 'EmpowerTours Bot', 
     category: 'AI Adventure Companion', 
     url: 'https://t.me/AI_RobotExpert_bot',
-    // Image: Working Cyberpunk Robot
-    image: 'https://images.unsplash.com/photo-1531746790731-6c087fecd65a?q=80&w=2000&auto=format&fit=crop',
+    // Image: High-tech futuristic robot
+    image: 'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?q=80&w=2000&auto=format&fit=crop',
     description: 'Web3-Powered Rock Climbing Adventures & Community on Telegram. Log ascents, build routes, and compete in tournaments while earning $TOURS tokens. Features a natural language interface for seamless blockchain interaction on Monad Testnet.',
     features: [
       'Journal Climbs & Earn Rewards',
@@ -65,8 +65,8 @@ const PROJECTS: Project[] = [
     name: 'Empower MiniApp', 
     category: 'Farcaster Social Hub', 
     url: 'https://farcaster.xyz/miniapps/83hgtZau7TNB/empowertours',
-    // Image: Purple Decentralized Network / Social Graph (Farcaster Themed)
-    image: 'https://images.unsplash.com/photo-1614680376593-902f74cf0d41?q=80&w=2000&auto=format&fit=crop',
+    // Image: Purple Abstract Network / Farcaster Branding Vibe
+    image: 'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?q=80&w=2000&auto=format&fit=crop',
     description: 'A comprehensive Web3 platform built as a Farcaster Mini App. Mint Travel Passport NFTs for 195 countries, license Music NFTs, and engage in social experiences with gasless transactions powered by Account Abstraction.',
     features: [
       'Travel Passport NFTs',
