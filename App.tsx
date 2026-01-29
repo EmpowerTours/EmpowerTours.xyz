@@ -38,11 +38,11 @@ const PROJECTS: Project[] = [
     url: 'https://t.me/AI_RobotExpert_bot',
     // Image: High-tech futuristic robot
     image: 'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?q=80&w=2000&auto=format&fit=crop',
-    description: 'Web3-Powered Rock Climbing Adventures & Community on Telegram. Log ascents, build routes, and compete in tournaments while earning $TOURS tokens. Features a natural language interface for seamless blockchain interaction on Monad.',
+    description: 'Web3-Powered Rock Climbing Adventures & Community on Telegram. Log ascents, build routes, and earn $TOURS rewards. Features a natural language interface for seamless blockchain interaction on Monad.',
     features: [
-      'Journal Climbs & Earn Rewards',
-      'Build & Trade Route NFTs',
-      'Community Tournaments',
+      'Journal Climbs & Earn TOURS Rewards',
+      'Build & Trade Climbing Location NFTs',
+      'Purchase Access Badges',
       'Gasless Bot Transactions'
     ],
     technologies: [
@@ -361,7 +361,7 @@ const App: React.FC = () => {
           </div>
           
           <div className="text-xs text-gray-500 font-mono order-3 md:order-2">
-            © 2025 EmpowerTours. Built on Monad.
+            © 2026 EmpowerTours. Built on Monad.
           </div>
           
           <div className="flex gap-6 md:gap-8 order-2 md:order-3">
