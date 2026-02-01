@@ -6,6 +6,7 @@ import GradientText from './components/GlitchText';
 import CustomCursor from './components/CustomCursor';
 import ProjectCard from './components/ProjectCard';
 import ContactForm from './components/ContactForm';
+import TokenomicsPage from './components/TokenomicsPage';
 import { Project, Service } from './types';
 
 // Portfolio Data - Updated with detailed specs
@@ -168,7 +169,7 @@ const App: React.FC = () => {
         
         {/* Desktop Menu */}
         <div className="hidden md:flex gap-10 text-xs font-bold tracking-[0.2em] uppercase">
-          {['Services', 'Portfolio', 'Contact'].map((item) => (
+          {['Services', 'Portfolio', 'Tokenomics', 'Contact'].map((item) => (
             <button 
               key={item} 
               onClick={() => scrollToSection(item.toLowerCase())}
@@ -202,7 +203,7 @@ const App: React.FC = () => {
             className="fixed inset-0 z-30 bg-[#020205] flex flex-col items-center justify-center gap-8 md:hidden pt-20"
           >
              <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-10 mix-blend-overlay pointer-events-none"></div>
-            {['Services', 'Portfolio', 'Contact'].map((item) => (
+            {['Services', 'Portfolio', 'Tokenomics', 'Contact'].map((item) => (
               <button
                 key={item}
                 onClick={() => scrollToSection(item.toLowerCase())}
@@ -336,6 +337,9 @@ const App: React.FC = () => {
           </div>
         </div>
       </section>
+
+      {/* TOKENOMICS SECTION */}
+      <TokenomicsPage />
 
       {/* CONTACT SECTION */}
       <section id="contact" className="relative z-10 py-16 md:py-32 px-4 md:px-6 bg-gradient-to-b from-transparent to-[#05050a]">
