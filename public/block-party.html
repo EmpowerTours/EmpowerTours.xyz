@@ -444,9 +444,14 @@ function toggleReplies(threadId) {
 function shareThread(threadId) {
   const t = localThreads.find(t => t.id === threadId);
   if (!t) return;
-  const preview = t.message.length > 100 ? t.message.slice(0,100)+'...' : t.message;
-  const text = `Anonymous thread on Monad Block Party:\n\n"${preview}"\n\nTipped: ${t.tipTotal.toFixed(1)} MON\n\nDrop your own thread or tip this one 👇\n\n@empowertours #MonadBlockParty`;
-  window.open(`https://x.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank');
+  const url = window.location.href;
+  const preview = t.message.length > 80 ? t.message.slice(0,80)+'...' : t.message;
+  const text = `"${preview}" - ${t.tipTotal.toFixed(1)} MON tipped\n\n${url}\n\n#MonadBlockParty`;
+  window.open(`https://x.com/intent/post?text=${encodeURIComponent(text)}`, '_blank');
+}
+
+function copyLink() {
+  navigator.clipboard.writeText(window.location.href).then(() => showToast('Link copied!'));
 }
 
 // ── RENDER ──
