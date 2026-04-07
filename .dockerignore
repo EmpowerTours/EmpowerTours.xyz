@@ -1,0 +1,7 @@
+*.db
+*.db-wal
+*.db-shm
+bin/
+server
+.env
+.git
