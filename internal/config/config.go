@@ -16,6 +16,13 @@ type Config struct {
 	Port                    string
 	StripeSecretKey         string
 	StripeWebhookSecret     string
+	AppleIssuerID           string
+	AppleKeyID              string
+	ApplePrivateKey         string
+	AppleBundleID           string
+	GooglePlayCredentialsJSON string
+	FacebookAppID            string
+	FacebookAppSecret        string
 }
 
 func Load() (*Config, error) {
@@ -30,8 +37,15 @@ func Load() (*Config, error) {
 		MembershipNFTAddress:    os.Getenv("MEMBERSHIP_NFT_ADDRESS"),
 		PaymentsContractAddress: os.Getenv("PAYMENTS_CONTRACT_ADDRESS"),
 		Port:                    getEnv("PORT", "8080"),
-		StripeSecretKey:         os.Getenv("STRIPE_SECRET_KEY"),
-		StripeWebhookSecret:    os.Getenv("STRIPE_WEBHOOK_SECRET"),
+		StripeSecretKey:           os.Getenv("STRIPE_SECRET_KEY"),
+		StripeWebhookSecret:      os.Getenv("STRIPE_WEBHOOK_SECRET"),
+		AppleIssuerID:            os.Getenv("APPLE_ISSUER_ID"),
+		AppleKeyID:               os.Getenv("APPLE_KEY_ID"),
+		ApplePrivateKey:          os.Getenv("APPLE_PRIVATE_KEY"),
+		AppleBundleID:            os.Getenv("APPLE_BUNDLE_ID"),
+		GooglePlayCredentialsJSON: os.Getenv("GOOGLE_PLAY_CREDENTIALS_JSON"),
+		FacebookAppID:            os.Getenv("FACEBOOK_APP_ID"),
+		FacebookAppSecret:        os.Getenv("FACEBOOK_APP_SECRET"),
 	}
 
 	return cfg, nil

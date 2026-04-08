@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EmpowerTours Admin</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0f172a;--card:#1e293b;--border:#334155;--text:#f8fafc;--muted:#94a3b8;--cyan:#22d3ee;--red:#ef4444;--green:#10b981}
+body{font-family:-apple-system,system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.login-page,.admin-page{max-width:900px;margin:0 auto;padding:24px}
+h1{font-size:24px;font-weight:800;margin-bottom:4px}
+h2{font-size:18px;font-weight:700;margin-bottom:16px;color:var(--cyan)}
+.subtitle{color:var(--muted);font-size:13px;margin-bottom:24px}
+/* Login */
+.login-box{max-width:400px;margin:80px auto;background:var(--card);border-radius:16px;padding:32px}
+.login-box h1{text-align:center;margin-bottom:24px}
+.form-group{margin-bottom:16px}
+.form-group label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px}
+input,textarea,select{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px 14px;color:var(--text);font-size:14px;font-family:inherit;outline:none}
+input:focus,textarea:focus,select:focus{border-color:var(--cyan)}
+textarea{min-height:80px;resize:vertical}
+.btn{padding:12px 24px;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;transition:transform .1s}
+.btn:hover{transform:scale(1.02)}
+.btn-cyan{background:var(--cyan);color:var(--bg)}
+.btn-red{background:rgba(239,68,68,.15);color:var(--red)}
+.btn-green{background:rgba(16,185,129,.15);color:var(--green)}
+.btn-full{width:100%}
+.btn-sm{padding:8px 14px;font-size:12px}
+.error{color:var(--red);font-size:13px;margin-top:8px}
+/* Admin */
+.admin-page{display:none}
+.top-bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}
+.tabs{display:flex;gap:8px;margin-bottom:20px}
+.tab{padding:8px 16px;border-radius:8px;background:var(--card);border:1px solid var(--border);color:var(--muted);cursor:pointer;font-size:13px;font-weight:600;font-family:inherit}
+.tab.active{background:var(--cyan);color:var(--bg);border-color:var(--cyan)}
+.grid{display:grid;gap:12px}
+.exp-card{background:var(--card);border-radius:12px;padding:16px;display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
+.exp-info{flex:1}
+.exp-title{font-size:16px;font-weight:700;margin-bottom:4px}
+.exp-meta{font-size:12px;color:var(--muted);margin-bottom:2px}
+.exp-actions{display:flex;gap:6px;flex-shrink:0}
+.badge{display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700}
+.badge-active{background:rgba(16,185,129,.15);color:var(--green)}
+.badge-draft{background:rgba(245,158,11,.15);color:#f59e0b}
+/* Modal */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;justify-content:center;align-items:center}
+.modal-overlay.show{display:flex}
+.modal{background:var(--card);border-radius:16px;padding:24px;width:90%;max-width:600px;max-height:85vh;overflow-y:auto}
+.modal h2{margin-bottom:16px}
+.modal .form-group{margin-bottom:14px}
+.modal-actions{display:flex;gap:10px;margin-top:20px;justify-content:flex-end}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+/* Waypoints */
+.wp-list{margin-top:12px}
+.wp-item{display:flex;align-items:center;gap:10px;background:var(--bg);border-radius:8px;padding:10px 12px;margin-bottom:6px}
+.wp-num{width:24px;height:24px;border-radius:12px;background:var(--border);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
+.wp-num.photo{background:var(--cyan);color:var(--bg)}
+.wp-name{flex:1;font-size:13px}
+.wp-del{background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;padding:4px}
+/* Stats */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:24px}
+.stat-box{background:var(--card);border-radius:12px;padding:16px;text-align:center}
+.stat-val{font-size:24px;font-weight:800;color:var(--cyan)}
+.stat-lbl{font-size:11px;color:var(--muted);margin-top:2px}
+/* Bookings */
+.booking-card{background:var(--card);border-radius:12px;padding:14px;margin-bottom:8px}
+.booking-row{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--muted);margin-bottom:4px}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div class="login-page" id="login-page">
+  <div class="login-box">
+    <h1>EmpowerTours Admin</h1>
+    <div class="form-group">
+      <label>Email</label>
+      <input type="email" id="login-email" placeholder="admin@empowertours.xyz">
+    </div>
+    <div class="form-group">
+      <label>Password</label>
+      <input type="password" id="login-password" placeholder="Password">
+    </div>
+    <div class="error" id="login-error"></div>
+    <button class="btn btn-cyan btn-full" onclick="login()" style="margin-top:12px">Log In</button>
+    <p style="text-align:center;margin-top:16px;font-size:12px;color:var(--muted)">
+      Don't have an admin account?<br>
+      <a href="#" onclick="register()" style="color:var(--cyan)">Create one</a>
+    </p>
+  </div>
+</div>
+
+<!-- ADMIN -->
+<div class="admin-page" id="admin-page">
+  <div class="top-bar">
+    <div>
+      <h1>EmpowerTours Admin</h1>
+      <p class="subtitle">Manage experiences, bookings & users</p>
+    </div>
+    <button class="btn btn-red btn-sm" onclick="logout()">Log Out</button>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="showPanel('experiences',this)">Experiences</button>
+    <button class="tab" onclick="showPanel('bookings',this)">Bookings</button>
+    <button class="tab" onclick="showPanel('users',this)">Users</button>
+  </div>
+
+  <!-- Experiences Panel -->
+  <div id="panel-experiences">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h2>Experiences</h2>
+      <button class="btn btn-cyan btn-sm" onclick="openCreateModal()">+ New Experience</button>
+    </div>
+    <div class="grid" id="exp-list"></div>
+  </div>
+
+  <!-- Bookings Panel -->
+  <div id="panel-bookings" style="display:none">
+    <h2>Recent Bookings</h2>
+    <div id="bookings-list"></div>
+  </div>
+
+  <!-- Users Panel -->
+  <div id="panel-users" style="display:none">
+    <h2>Users</h2>
+    <div class="stats-row" id="user-stats"></div>
+    <div id="users-list"></div>
+  </div>
+</div>
+
+<!-- Create/Edit Experience Modal -->
+<div class="modal-overlay" id="exp-modal">
+  <div class="modal">
+    <h2 id="modal-title">New Experience</h2>
+    <input type="hidden" id="exp-edit-id">
+    <div class="form-group">
+      <label>Title</label>
+      <input id="exp-title" placeholder="e.g. Sunset Horseback Ride">
+    </div>
+    <div class="row">
+      <div class="form-group">
+        <label>Category</label>
+        <select id="exp-category">
+          <option value="Adventure">Adventure</option>
+          <option value="Culture">Culture</option>
+          <option value="Food">Food</option>
+          <option value="Nature">Nature</option>
+          <option value="Transport">Transport</option>
+          <option value="Wellness">Wellness</option>
+          <option value="Nightlife">Nightlife</option>
+          <option value="Sports">Sports</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Price (USD)</label>
+        <input id="exp-price" type="number" placeholder="85.00">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Description</label>
+      <textarea id="exp-desc" placeholder="Describe the experience..."></textarea>
+    </div>
+    <div class="row">
+      <div class="form-group">
+        <label>Location Name</label>
+        <input id="exp-location" placeholder="Puerto Vallarta, Mexico">
+      </div>
+      <div class="form-group">
+        <label>Max Guests</label>
+        <input id="exp-guests" type="number" value="8">
+      </div>
+    </div>
+    <div class="row">
+      <div class="form-group">
+        <label>Latitude</label>
+        <input id="exp-lat" type="number" step="any" placeholder="20.6534">
+      </div>
+      <div class="form-group">
+        <label>Longitude</label>
+        <input id="exp-lng" type="number" step="any" placeholder="-105.2253">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Image URL (optional)</label>
+      <input id="exp-image" placeholder="https://...">
+    </div>
+
+    <!-- Waypoints -->
+    <h2 style="margin-top:20px;font-size:15px">Waypoints</h2>
+    <div class="wp-list" id="modal-waypoints"></div>
+    <div style="margin-top:8px;padding:12px;background:var(--bg);border-radius:10px">
+      <div class="row">
+        <input id="wp-name" placeholder="Stop name">
+        <input id="wp-lat" type="number" step="any" placeholder="Latitude">
+      </div>
+      <div class="row" style="margin-top:8px">
+        <input id="wp-lng" type="number" step="any" placeholder="Longitude">
+        <input id="wp-dur" type="number" placeholder="Duration (min)">
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:8px">
+        <label style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px">
+          <input type="checkbox" id="wp-photo"> Photo Checkpoint
+        </label>
+        <div style="flex:1"></div>
+        <button class="btn btn-cyan btn-sm" onclick="addWaypoint()">Add Stop</button>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-red btn-sm" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-cyan" onclick="saveExperience()">Save Experience</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = location.hostname === 'localhost' || location.hostname === '127.0.0.1'
+  ? `http://${location.hostname}:8090`
+  : `http://192.168.1.98:8090`;
+let token = localStorage.getItem('admin_token') || '';
+let waypoints = [];
+
+// Auto-login if token exists
+if (token) { showAdmin(); loadAll(); }
+
+async function api(path, opts = {}) {
+  const headers = { 'Content-Type': 'application/json', ...opts.headers };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  const res = await fetch(`${API}${path}`, { ...opts, headers });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Request failed');
+  return data.data || data;
+}
+
+async function login() {
+  const email = document.getElementById('login-email').value;
+  const pwd = document.getElementById('login-password').value;
+  try {
+    const res = await api('/api/v1/auth/email-login', {
+      method: 'POST', body: JSON.stringify({ email, password: pwd })
+    });
+    token = res.token;
+    localStorage.setItem('admin_token', token);
+    showAdmin();
+    loadAll();
+  } catch (e) {
+    document.getElementById('login-error').textContent = e.message;
+  }
+}
+
+async function register() {
+  const email = document.getElementById('login-email').value;
+  const pwd = document.getElementById('login-password').value;
+  if (!email || !pwd) { document.getElementById('login-error').textContent = 'Enter email and password'; return; }
+  try {
+    const res = await api('/api/v1/auth/register', {
+      method: 'POST', body: JSON.stringify({ email, password: pwd, displayName: 'Admin' })
+    });
+    token = res.token;
+    localStorage.setItem('admin_token', token);
+    showAdmin();
+    loadAll();
+  } catch (e) {
+    document.getElementById('login-error').textContent = e.message;
+  }
+}
+
+function logout() {
+  token = '';
+  localStorage.removeItem('admin_token');
+  document.getElementById('admin-page').style.display = 'none';
+  document.getElementById('login-page').style.display = 'block';
+}
+
+function showAdmin() {
+  document.getElementById('login-page').style.display = 'none';
+  document.getElementById('admin-page').style.display = 'block';
+}
+
+function showPanel(name, btn) {
+  document.querySelectorAll('[id^="panel-"]').forEach(p => p.style.display = 'none');
+  document.getElementById('panel-' + name).style.display = 'block';
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+}
+
+async function loadAll() {
+  loadExperiences();
+}
+
+async function loadExperiences() {
+  try {
+    const exps = await api('/api/v1/experiences');
+    const list = document.getElementById('exp-list');
+    if (!exps || exps.length === 0) {
+      list.innerHTML = '<p style="color:var(--muted);text-align:center;padding:40px">No experiences yet. Click "+ New Experience" to create one.</p>';
+      return;
+    }
+    list.innerHTML = exps.map(exp => `
+      <div class="exp-card">
+        <div class="exp-info">
+          <div class="exp-title">${exp.title}</div>
+          <div class="exp-meta">📍 ${exp.locationName || 'No location'} &middot; $${exp.priceUsd?.toFixed(0) || '0'}/person &middot; Max ${exp.maxGuests || '?'} guests</div>
+          <div class="exp-meta">${exp.category} &middot; <span class="badge ${exp.isActive ? 'badge-active' : 'badge-draft'}">${exp.isActive ? 'Active' : 'Inactive'}</span></div>
+        </div>
+        <div class="exp-actions">
+          <button class="btn btn-cyan btn-sm" onclick="editExperience('${exp.id}')">Edit</button>
+          <button class="btn btn-red btn-sm" onclick="deleteExperience('${exp.id}','${exp.title}')">Delete</button>
+        </div>
+      </div>`).join('');
+  } catch (e) {
+    console.error('Failed to load experiences:', e);
+  }
+}
+
+function openCreateModal() {
+  document.getElementById('modal-title').textContent = 'New Experience';
+  document.getElementById('exp-edit-id').value = '';
+  document.getElementById('exp-title').value = '';
+  document.getElementById('exp-category').value = 'Adventure';
+  document.getElementById('exp-price').value = '';
+  document.getElementById('exp-desc').value = '';
+  document.getElementById('exp-location').value = '';
+  document.getElementById('exp-guests').value = '8';
+  document.getElementById('exp-lat').value = '';
+  document.getElementById('exp-lng').value = '';
+  document.getElementById('exp-image').value = '';
+  waypoints = [];
+  renderWaypoints();
+  document.getElementById('exp-modal').classList.add('show');
+}
+
+async function editExperience(id) {
+  try {
+    const exps = await api('/api/v1/experiences');
+    const exp = exps.find(e => e.id === id);
+    if (!exp) return;
+    document.getElementById('modal-title').textContent = 'Edit Experience';
+    document.getElementById('exp-edit-id').value = id;
+    document.getElementById('exp-title').value = exp.title;
+    document.getElementById('exp-category').value = exp.category;
+    document.getElementById('exp-price').value = exp.priceUsd || '';
+    document.getElementById('exp-desc').value = exp.description || '';
+    document.getElementById('exp-location').value = exp.locationName || '';
+    document.getElementById('exp-guests').value = exp.maxGuests || 8;
+    document.getElementById('exp-lat').value = exp.latitude || '';
+    document.getElementById('exp-lng').value = exp.longitude || '';
+    document.getElementById('exp-image').value = exp.imageUrl || '';
+
+    // Load waypoints
+    try {
+      const wps = await api(`/api/v1/experiences/${exp.slug}/waypoints`);
+      waypoints = (wps || []).map(w => ({
+        name: w.name, lat: w.latitude, lng: w.longitude,
+        duration: w.estimatedDurationMin || 15, isPhoto: w.isPhotoCheckpoint, id: w.id
+      }));
+    } catch { waypoints = []; }
+    renderWaypoints();
+    document.getElementById('exp-modal').classList.add('show');
+  } catch (e) {
+    alert('Failed to load experience: ' + e.message);
+  }
+}
+
+function closeModal() {
+  document.getElementById('exp-modal').classList.remove('show');
+}
+
+function addWaypoint() {
+  const name = document.getElementById('wp-name').value;
+  if (!name) return;
+  waypoints.push({
+    name,
+    lat: parseFloat(document.getElementById('wp-lat').value) || 0,
+    lng: parseFloat(document.getElementById('wp-lng').value) || 0,
+    duration: parseInt(document.getElementById('wp-dur').value) || 15,
+    isPhoto: document.getElementById('wp-photo').checked
+  });
+  document.getElementById('wp-name').value = '';
+  document.getElementById('wp-lat').value = '';
+  document.getElementById('wp-lng').value = '';
+  document.getElementById('wp-dur').value = '';
+  document.getElementById('wp-photo').checked = false;
+  renderWaypoints();
+}
+
+function removeWaypoint(i) {
+  waypoints.splice(i, 1);
+  renderWaypoints();
+}
+
+function renderWaypoints() {
+  const el = document.getElementById('modal-waypoints');
+  el.innerHTML = waypoints.map((wp, i) => `
+    <div class="wp-item">
+      <div class="wp-num ${wp.isPhoto ? 'photo' : ''}">${i + 1}</div>
+      <span class="wp-name">${wp.name} ${wp.isPhoto ? '📸' : ''} <span style="color:var(--muted);font-size:11px">~${wp.duration}min</span></span>
+      <button class="wp-del" onclick="removeWaypoint(${i})">✕</button>
+    </div>`).join('');
+}
+
+async function saveExperience() {
+  const editId = document.getElementById('exp-edit-id').value;
+  const body = {
+    title: document.getElementById('exp-title').value,
+    category: document.getElementById('exp-category').value,
+    description: document.getElementById('exp-desc').value,
+    location_name: document.getElementById('exp-location').value,
+    latitude: parseFloat(document.getElementById('exp-lat').value) || null,
+    longitude: parseFloat(document.getElementById('exp-lng').value) || null,
+    price_usd: parseFloat(document.getElementById('exp-price').value) || null,
+    max_guests: parseInt(document.getElementById('exp-guests').value) || 8,
+    image_url: document.getElementById('exp-image').value || null,
+    is_active: true
+  };
+
+  try {
+    if (editId) {
+      await api(`/api/v1/admin/experiences/${editId}`, { method: 'PUT', body: JSON.stringify(body) });
+    } else {
+      const exp = await api('/api/v1/admin/experiences', { method: 'POST', body: JSON.stringify(body) });
+      // Create waypoints
+      for (let i = 0; i < waypoints.length; i++) {
+        const wp = waypoints[i];
+        await api('/api/v1/admin/waypoints', {
+          method: 'POST',
+          body: JSON.stringify({
+            experienceId: exp.id,
+            name: wp.name,
+            latitude: wp.lat,
+            longitude: wp.lng,
+            orderIndex: i,
+            isPhotoCheckpoint: wp.isPhoto,
+            estimatedDurationMin: wp.duration,
+            radiusMeters: 50
+          })
+        });
+      }
+    }
+    closeModal();
+    loadExperiences();
+  } catch (e) {
+    alert('Failed to save: ' + e.message);
+  }
+}
+
+async function deleteExperience(id, title) {
+  if (!confirm(`Delete "${title}"? This cannot be undone.`)) return;
+  try {
+    await api(`/api/v1/admin/experiences/${id}`, { method: 'DELETE' });
+    loadExperiences();
+  } catch (e) {
+    alert('Failed to delete: ' + e.message);
+  }
+}
+
+// Close modal on backdrop click
+document.getElementById('exp-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+</script>
+</body>
+</html>

@@ -21,8 +21,9 @@ import (
 
 // AuthHandler holds dependencies for authentication endpoints.
 type AuthHandler struct {
-	DB        *sqlx.DB
-	JWTSecret string
+	DB                *sqlx.DB
+	JWTSecret         string
+	FacebookAppSecret string
 }
 
 // NewAuthHandler creates a new AuthHandler.

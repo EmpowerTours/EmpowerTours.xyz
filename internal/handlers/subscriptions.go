@@ -2,18 +2,22 @@ package handlers
 
 import (
 	"encoding/json"
+	"log"
 	"math"
 	"net/http"
 	"time"
 
 	"github.com/empowertours/empowertours-app/internal/middleware"
 	"github.com/empowertours/empowertours-app/internal/models"
+	"github.com/empowertours/empowertours-app/internal/services"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 )
 
 type SubscriptionHandler struct {
-	DB *sqlx.DB
+	DB              *sqlx.DB
+	AppleValidator  *services.AppleReceiptValidator
+	GoogleValidator *services.GoogleReceiptValidator
 }
 
 type startTrialRequest struct {
@@ -79,6 +83,7 @@ func (h *SubscriptionHandler) StartTrial(w http.ResponseWriter, r *http.Request)
 		sub.TrialStart, sub.TrialEnd, sub.AutoRenew, sub.PriceLocal, sub.Currency,
 		sub.CreatedAt, sub.UpdatedAt)
 	if err != nil {
+		log.Printf("Failed to insert subscription: %v", err)
 		writeError(w, http.StatusInternalServerError, "Failed to start trial")
 		return
 	}
@@ -105,12 +110,35 @@ func (h *SubscriptionHandler) VerifyReceipt(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// In production, verify receipt with Apple/Google servers:
-	// Apple: POST to https://buy.itunes.apple.com/verifyReceipt
-	// Google: Use Google Play Developer API
-	//
-	// For now, we trust the client and activate.
-	// TODO: Add server-side receipt validation before going live.
+	// Server-side receipt validation
+	switch req.Platform {
+	case "apple":
+		if h.AppleValidator != nil {
+			info, err := h.AppleValidator.Validate(req.Receipt)
+			if err != nil {
+				log.Printf("Apple receipt validation failed for user %s: %v", userID, err)
+				writeError(w, http.StatusForbidden, "Receipt validation failed")
+				return
+			}
+			if info != nil {
+				req.TransactionID = info.OriginalTransactionID
+				log.Printf("Apple receipt verified: user=%s txn=%s", userID, info.TransactionID)
+			}
+		}
+	case "google":
+		if h.GoogleValidator != nil {
+			info, err := h.GoogleValidator.Validate("xyz.empowertours.mobile", req.ProductID, req.Receipt)
+			if err != nil {
+				log.Printf("Google receipt validation failed for user %s: %v", userID, err)
+				writeError(w, http.StatusForbidden, "Receipt validation failed")
+				return
+			}
+			if info != nil {
+				req.TransactionID = info.OrderID
+				log.Printf("Google receipt verified: user=%s order=%s", userID, info.OrderID)
+			}
+		}
+	}
 
 	now := time.Now()
 	periodEnd := now.Add(365 * 24 * time.Hour) // 1 year

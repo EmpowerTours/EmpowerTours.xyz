@@ -73,6 +73,7 @@ func main() {
 
 	// --- Handlers ---
 	authHandler := handlers.NewAuthHandler(db, cfg.JWTSecret)
+	authHandler.FacebookAppSecret = cfg.FacebookAppSecret
 	appHandler := &handlers.ApplicationHandler{DB: db}
 	adminHandler := &handlers.AdminHandler{DB: db}
 	expHandler := &handlers.ExperienceHandler{DB: db}
@@ -83,7 +84,19 @@ func main() {
 	waypointHandler := &handlers.WaypointHandler{DB: db}
 	photoHandler := &handlers.PhotoHandler{DB: db, Hub: hub}
 	paymentHandler := &handlers.PaymentHandler{DB: db, StripeWebhookSecret: cfg.StripeWebhookSecret}
-	subHandler := &handlers.SubscriptionHandler{DB: db}
+	appleValidator := services.NewAppleReceiptValidator(cfg)
+	googleValidator := services.NewGoogleReceiptValidator(cfg)
+	subHandler := &handlers.SubscriptionHandler{DB: db, AppleValidator: appleValidator, GoogleValidator: googleValidator}
+	chillHandler := &handlers.ChillHandler{DB: db}
+
+	// Upload handler (photos stored locally in dev, swap to S3 for prod)
+	uploadDir := filepath.Join(filepath.Dir(cfg.DatabasePath), "uploads")
+	os.MkdirAll(uploadDir, 0755)
+	baseURL := fmt.Sprintf("http://localhost:%s", cfg.Port)
+	if os.Getenv("BASE_URL") != "" {
+		baseURL = os.Getenv("BASE_URL")
+	}
+	uploadHandler := &handlers.UploadHandler{UploadDir: uploadDir, BaseURL: baseURL}
 
 	// --- Public routes ---
 	r.Get("/health", handlers.HealthCheck)
@@ -94,13 +107,32 @@ func main() {
 	r.Get("/privacy", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, filepath.Join(staticDir, "privacy.html"))
 	})
+	r.Get("/data-deletion", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, filepath.Join(staticDir, "data-deletion.html"))
+	})
+	r.Get("/admin", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, filepath.Join(staticDir, "admin.html"))
+	})
+
+	// Facebook data deletion callback (POST signed_request from Meta).
+	// Outside the rate-limited /api/v1/auth group because Facebook posts here directly.
+	r.Post("/auth/facebook/data-deletion", authHandler.FacebookDataDeletion)
+
+	// Serve uploaded photos
+	r.Handle("/uploads/*", http.StripPrefix("/uploads/", http.FileServer(http.Dir(uploadDir))))
 
 	// Stripe webhook (no auth, signature verified internally)
 	r.Post("/webhooks/stripe", paymentHandler.HandleWebhook)
 
+	// Auth routes - rate limited: 20 requests per minute per IP
+	authLimiter := appMw.NewRateLimiter(20, time.Minute)
 	r.Route("/api/v1/auth", func(r chi.Router) {
+		r.Use(authLimiter.Middleware)
 		r.Post("/nonce", authHandler.Nonce)
 		r.Post("/login", authHandler.Login)
+		r.Post("/register", authHandler.Register)
+		r.Post("/email-login", authHandler.EmailLogin)
+		r.Post("/facebook", authHandler.FacebookLogin)
 	})
 
 	// --- Protected routes (auth required, no membership needed) ---
@@ -117,6 +149,9 @@ func main() {
 		r.Post("/subscription/trial", subHandler.StartTrial)
 		r.Post("/subscription/verify", subHandler.VerifyReceipt)
 		r.Post("/subscription/restore", subHandler.RestorePurchase)
+
+		// File uploads — auth only, no subscription needed
+		r.Post("/upload/photo", uploadHandler.UploadPhoto)
 
 		// --- Subscription-required routes ---
 		r.Group(func(r chi.Router) {
@@ -163,6 +198,20 @@ func main() {
 			r.Post("/sessions/{id}/photos", photoHandler.UploadCheckpointPhoto)
 			r.Get("/sessions/{id}/photos", photoHandler.ListSessionPhotos)
 
+			// Chill - social matching & meetups
+			r.Get("/chill/profile", chillHandler.GetProfile)
+			r.Put("/chill/profile", chillHandler.UpdateProfile)
+			r.Get("/chill/discover", chillHandler.Discover)
+			r.Post("/chill/request", chillHandler.SendChillRequest)
+			r.Get("/chill/requests", chillHandler.GetPendingRequests)
+			r.Patch("/chill/requests/{id}", chillHandler.RespondToRequest)
+			r.Get("/chill/matches", chillHandler.GetMatches)
+			r.Patch("/chill/matches/{id}/schedule", chillHandler.ScheduleMeet)
+			r.Post("/chill/travel-plans", chillHandler.CreateTravelPlan)
+			r.Get("/chill/travel-plans", chillHandler.GetMyTravelPlans)
+			r.Delete("/chill/travel-plans/{id}", chillHandler.DeleteTravelPlan)
+			r.Get("/chill/discover/nearby", chillHandler.DiscoverByTravel)
+
 			// Rides
 			r.Post("/rides/request", rideHandler.RequestRide)
 			r.Get("/rides/available", rideHandler.ListAvailableRides)
@@ -185,9 +234,10 @@ func main() {
 		r.Post("/applications/{id}/approve", adminHandler.ApproveApplication)
 		r.Post("/applications/{id}/reject", adminHandler.RejectApplication)
 
-		// Experience management (admin create/update)
+		// Experience management (admin create/update/delete)
 		r.Post("/experiences", expHandler.CreateExperience)
 		r.Put("/experiences/{id}", expHandler.UpdateExperience)
+		r.Delete("/experiences/{id}", expHandler.AdminDeleteExperience)
 
 		// Waypoint management
 		r.Post("/waypoints", waypointHandler.CreateWaypoint)

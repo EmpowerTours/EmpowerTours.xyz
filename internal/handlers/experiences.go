@@ -417,6 +417,34 @@ func (h *ExperienceHandler) GetMyExperienceBookings(w http.ResponseWriter, r *ht
 	writeJSON(w, http.StatusOK, bookings)
 }
 
+// AdminDeleteExperience removes any experience (admin only).
+// DELETE /admin/experiences/{id}
+func (h *ExperienceHandler) AdminDeleteExperience(w http.ResponseWriter, r *http.Request) {
+	expID := chi.URLParam(r, "id")
+
+	var activeBookings int
+	h.DB.Get(&activeBookings, "SELECT COUNT(*) FROM bookings WHERE experience_id = ? AND status IN ('pending','confirmed')", expID)
+	if activeBookings > 0 {
+		writeError(w, http.StatusConflict, "Cannot delete: there are active bookings for this experience")
+		return
+	}
+
+	h.DB.Exec("DELETE FROM waypoints WHERE experience_id = ?", expID)
+	result, err := h.DB.Exec("DELETE FROM experiences WHERE id = ?", expID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "Failed to delete experience")
+		return
+	}
+
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		writeError(w, http.StatusNotFound, "Experience not found")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"deleted": expID})
+}
+
 // ── Admin-only routes (unchanged) ───────────────────────────────────
 
 // CreateExperience handles POST /admin/experiences (admin-created)

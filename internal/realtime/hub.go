@@ -14,7 +14,24 @@ var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
 	CheckOrigin: func(r *http.Request) bool {
-		return true // Allow mobile app connections
+		origin := r.Header.Get("Origin")
+		// Allow mobile apps (no origin header) and known domains
+		if origin == "" {
+			return true // Mobile apps don't send Origin
+		}
+		allowed := []string{
+			"https://empowertours.xyz",
+			"https://www.empowertours.xyz",
+			"https://api.empowertours.xyz",
+			"http://localhost",
+			"http://192.168.",
+		}
+		for _, a := range allowed {
+			if len(origin) >= len(a) && origin[:len(a)] == a {
+				return true
+			}
+		}
+		return false
 	},
 }
 
