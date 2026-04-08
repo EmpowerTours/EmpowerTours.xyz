@@ -110,6 +110,9 @@ func main() {
 	r.Get("/data-deletion", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, filepath.Join(staticDir, "data-deletion.html"))
 	})
+	r.Get("/terms", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, filepath.Join(staticDir, "terms.html"))
+	})
 	r.Get("/admin", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, filepath.Join(staticDir, "admin.html"))
 	})
