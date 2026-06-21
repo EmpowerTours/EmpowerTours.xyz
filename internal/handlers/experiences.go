@@ -33,22 +33,22 @@ type experienceRequest struct {
 }
 
 type userExperienceRequest struct {
-	Title         string   `json:"title"`
-	Category      string   `json:"category"`
-	Description   string   `json:"description"`
-	LocationName  string   `json:"locationName"`
-	Latitude      float64  `json:"latitude"`
-	Longitude     float64  `json:"longitude"`
-	PriceUSD      float64  `json:"priceUsd"`
-	MaxGuests     int      `json:"maxGuests"`
-	MinGuests     *int     `json:"minGuests"`
-	DurationMin   *int     `json:"durationMin"`
-	MeetingPoint  *string  `json:"meetingPoint"`
-	WhatToBring   *string  `json:"whatToBring"`
-	Languages     *string  `json:"languages"`
-	CoverPhotoURL *string  `json:"coverPhotoUrl"`
-	GalleryURLs   *string  `json:"galleryUrls"`
-	SaveAsDraft   bool     `json:"saveAsDraft"`
+	Title         string          `json:"title"`
+	Category      string          `json:"category"`
+	Description   string          `json:"description"`
+	LocationName  string          `json:"locationName"`
+	Latitude      float64         `json:"latitude"`
+	Longitude     float64         `json:"longitude"`
+	PriceUSD      float64         `json:"priceUsd"`
+	MaxGuests     int             `json:"maxGuests"`
+	MinGuests     *int            `json:"minGuests"`
+	DurationMin   *int            `json:"durationMin"`
+	MeetingPoint  *string         `json:"meetingPoint"`
+	WhatToBring   *string         `json:"whatToBring"`
+	Languages     *string         `json:"languages"`
+	CoverPhotoURL *string         `json:"coverPhotoUrl"`
+	GalleryURLs   *string         `json:"galleryUrls"`
+	SaveAsDraft   bool            `json:"saveAsDraft"`
 	Waypoints     []waypointInput `json:"waypoints"`
 }
 
@@ -67,7 +67,10 @@ type waypointInput struct {
 // ListExperiences handles GET /experiences
 func (h *ExperienceHandler) ListExperiences(w http.ResponseWriter, r *http.Request) {
 	var experiences []models.Experience
-	err := h.DB.Select(&experiences, "SELECT * FROM experiences WHERE is_active = 1 AND status = 'active' ORDER BY created_at DESC")
+	err := h.DB.Select(&experiences, `SELECT experiences.*, users.display_name AS creator_name
+		FROM experiences LEFT JOIN users ON users.id = experiences.creator_id
+		WHERE experiences.is_active = 1 AND experiences.status = 'active'
+		ORDER BY experiences.created_at DESC`)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "Failed to fetch experiences")
 		return
@@ -83,7 +86,9 @@ func (h *ExperienceHandler) GetExperience(w http.ResponseWriter, r *http.Request
 	slug := chi.URLParam(r, "slug")
 
 	var exp models.Experience
-	err := h.DB.Get(&exp, "SELECT * FROM experiences WHERE slug = ?", slug)
+	err := h.DB.Get(&exp, `SELECT experiences.*, users.display_name AS creator_name
+		FROM experiences LEFT JOIN users ON users.id = experiences.creator_id
+		WHERE experiences.slug = ?`, slug)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "Experience not found")
 		return
@@ -112,8 +117,8 @@ func (h *ExperienceHandler) CreateUserExperience(w http.ResponseWriter, r *http.
 		writeError(w, http.StatusBadRequest, "locationName is required")
 		return
 	}
-	if req.PriceUSD <= 0 {
-		writeError(w, http.StatusBadRequest, "priceUsd must be greater than 0")
+	if req.PriceUSD < 0 {
+		writeError(w, http.StatusBadRequest, "priceUsd cannot be negative")
 		return
 	}
 	if req.MaxGuests <= 0 {

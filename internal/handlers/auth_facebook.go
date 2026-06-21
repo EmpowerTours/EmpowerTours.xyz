@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -78,7 +80,12 @@ func (h *AuthHandler) FacebookLogin(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		// Create new user
 		userID = uuid.New().String()
-		walletAddr = "0x" + uuid.New().String()[:40]
+		walletBytes := make([]byte, 20)
+		if _, randomErr := rand.Read(walletBytes); randomErr != nil {
+			writeError(w, http.StatusInternalServerError, "Failed to create account")
+			return
+		}
+		walletAddr = "0x" + hex.EncodeToString(walletBytes)
 		now := time.Now()
 
 		photoURL := fbUser.Picture.Data.URL

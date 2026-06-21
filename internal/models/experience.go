@@ -18,6 +18,7 @@ type Experience struct {
 	ImageURL      *string    `json:"imageUrl" db:"image_url"`
 	IsActive      bool       `json:"isActive" db:"is_active"`
 	CreatorID     *string    `json:"creatorId" db:"creator_id"`
+	CreatorName   *string    `json:"creatorName" db:"creator_name"`
 	Status        string     `json:"status" db:"status"`
 	DurationMin   *int       `json:"durationMin" db:"duration_min"`
 	MeetingPoint  *string    `json:"meetingPoint" db:"meeting_point"`

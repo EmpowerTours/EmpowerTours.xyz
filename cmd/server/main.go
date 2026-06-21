@@ -156,10 +156,11 @@ func main() {
 		// File uploads — auth only, no subscription needed
 		r.Post("/upload/photo", uploadHandler.UploadPhoto)
 
-		// --- Subscription-required routes ---
+		// --- Authenticated product routes ---
+		// Marketplace and community access are free at launch. Subscription
+		// status remains available for future premium features, but it must not
+		// prevent a new user from completing a profile or interacting.
 		r.Group(func(r chi.Router) {
-			r.Use(appMw.RequireSubscription(db))
-
 			// Experiences (browse)
 			r.Get("/experiences", expHandler.ListExperiences)
 			r.Get("/experiences/{slug}", expHandler.GetExperience)
