@@ -221,12 +221,15 @@ func main() {
 			r.Delete("/chill/travel-plans/{id}", chillHandler.DeleteTravelPlan)
 			r.Get("/chill/discover/nearby", chillHandler.DiscoverByTravel)
 
-			// Rides
-			r.Post("/rides/request", rideHandler.RequestRide)
-			r.Get("/rides/available", rideHandler.ListAvailableRides)
-			r.Post("/rides/{id}/accept", rideHandler.AcceptRide)
-			r.Patch("/rides/{id}/status", rideHandler.UpdateRideStatus)
-			r.Get("/rides/my", rideHandler.ListMyRides)
+			// Ride dispatch remains a premium operational feature.
+			r.Group(func(r chi.Router) {
+				r.Use(appMw.RequireSubscription(db))
+				r.Post("/rides/request", rideHandler.RequestRide)
+				r.Get("/rides/available", rideHandler.ListAvailableRides)
+				r.Post("/rides/{id}/accept", rideHandler.AcceptRide)
+				r.Patch("/rides/{id}/status", rideHandler.UpdateRideStatus)
+				r.Get("/rides/my", rideHandler.ListMyRides)
+			})
 		})
 	})
 
