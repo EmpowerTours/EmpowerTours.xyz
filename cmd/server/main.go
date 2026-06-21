@@ -181,26 +181,31 @@ func main() {
 			r.Get("/bookings/{id}", bookingHandler.GetBooking)
 			r.Patch("/bookings/{id}/cancel", bookingHandler.CancelBooking)
 
-			// Payments (Stripe)
-			r.Post("/payments/create", paymentHandler.CreatePaymentIntent)
-			r.Get("/payments", paymentHandler.ListMyPayments)
-			r.Get("/payments/{id}", paymentHandler.GetPayment)
+			// Premium transaction and live-tour features remain subscription-gated.
+			r.Group(func(r chi.Router) {
+				r.Use(appMw.RequireSubscription(db))
 
-			// Experience Sessions (live GPS tracking)
-			r.Post("/sessions/start", sessionHandler.StartSession)
-			r.Get("/sessions/my", sessionHandler.ListMySessions)
-			r.Get("/sessions/{id}", sessionHandler.GetSession)
-			r.Patch("/sessions/{id}/end", sessionHandler.EndSession)
-			r.Get("/sessions/{id}/live", sessionHandler.LiveSession) // WebSocket
+				// Payments (Stripe)
+				r.Post("/payments/create", paymentHandler.CreatePaymentIntent)
+				r.Get("/payments", paymentHandler.ListMyPayments)
+				r.Get("/payments/{id}", paymentHandler.GetPayment)
 
-			// GPS Location tracking
-			r.Post("/sessions/{id}/location", trackingHandler.RecordLocation)
-			r.Post("/sessions/{id}/location/batch", trackingHandler.RecordLocationBatch)
-			r.Get("/sessions/{id}/location", trackingHandler.GetLocationHistory)
+				// Experience Sessions (live GPS tracking)
+				r.Post("/sessions/start", sessionHandler.StartSession)
+				r.Get("/sessions/my", sessionHandler.ListMySessions)
+				r.Get("/sessions/{id}", sessionHandler.GetSession)
+				r.Patch("/sessions/{id}/end", sessionHandler.EndSession)
+				r.Get("/sessions/{id}/live", sessionHandler.LiveSession) // WebSocket
 
-			// Checkpoint photos
-			r.Post("/sessions/{id}/photos", photoHandler.UploadCheckpointPhoto)
-			r.Get("/sessions/{id}/photos", photoHandler.ListSessionPhotos)
+				// GPS Location tracking
+				r.Post("/sessions/{id}/location", trackingHandler.RecordLocation)
+				r.Post("/sessions/{id}/location/batch", trackingHandler.RecordLocationBatch)
+				r.Get("/sessions/{id}/location", trackingHandler.GetLocationHistory)
+
+				// Checkpoint photos
+				r.Post("/sessions/{id}/photos", photoHandler.UploadCheckpointPhoto)
+				r.Get("/sessions/{id}/photos", photoHandler.ListSessionPhotos)
+			})
 
 			// Chill - social matching & meetups
 			r.Get("/chill/profile", chillHandler.GetProfile)
