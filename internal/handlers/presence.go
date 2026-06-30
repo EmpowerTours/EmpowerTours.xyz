@@ -75,32 +75,41 @@ func (h *PresenceHandler) UpdatePresence(w http.ResponseWriter, r *http.Request)
 
 	now := time.Now().UTC()
 	expires := now.Add(45 * time.Minute)
-	cityValue := req.City
-	spotValue := req.Spot
-	spotLatValue := req.Latitude
-	spotLngValue := req.Longitude
+	var err error
 	if req.Latitude != nil && req.Longitude != nil && req.City == nil && req.Spot == nil {
-		cityValue = nil
-		spotValue = nil
-		spotLatValue = nil
-		spotLngValue = nil
+		_, err = h.DB.Exec(`UPDATE users SET
+			current_lat = ?,
+			current_lng = ?,
+			current_city = NULL,
+			current_spot = NULL,
+			current_spot_lat = NULL,
+			current_spot_lng = NULL,
+			precise_location_ok = COALESCE(?, precise_location_ok),
+			is_discoverable = COALESCE(?, is_discoverable),
+			presence_updated_at = ?,
+			presence_expires_at = ?,
+			updated_at = ?
+			WHERE id = ?`,
+			req.Latitude, req.Longitude, req.PreciseLocationOk, req.Discoverable,
+			now, expires, now, userID)
+	} else {
+		_, err = h.DB.Exec(`UPDATE users SET
+			current_lat = COALESCE(?, current_lat),
+			current_lng = COALESCE(?, current_lng),
+			current_city = COALESCE(?, current_city),
+			current_spot = COALESCE(?, current_spot),
+			current_spot_lat = COALESCE(?, current_spot_lat),
+			current_spot_lng = COALESCE(?, current_spot_lng),
+			precise_location_ok = COALESCE(?, precise_location_ok),
+			is_discoverable = COALESCE(?, is_discoverable),
+			presence_updated_at = ?,
+			presence_expires_at = ?,
+			updated_at = ?
+			WHERE id = ?`,
+			req.Latitude, req.Longitude, req.City, req.Spot,
+			req.Latitude, req.Longitude, req.PreciseLocationOk, req.Discoverable,
+			now, expires, now, userID)
 	}
-	_, err := h.DB.Exec(`UPDATE users SET
-		current_lat = COALESCE(?, current_lat),
-		current_lng = COALESCE(?, current_lng),
-		current_city = COALESCE(?, current_city),
-		current_spot = COALESCE(?, current_spot),
-		current_spot_lat = COALESCE(?, current_spot_lat),
-		current_spot_lng = COALESCE(?, current_spot_lng),
-		precise_location_ok = COALESCE(?, precise_location_ok),
-		is_discoverable = COALESCE(?, is_discoverable),
-		presence_updated_at = ?,
-		presence_expires_at = ?,
-		updated_at = ?
-		WHERE id = ?`,
-		req.Latitude, req.Longitude, cityValue, spotValue,
-		spotLatValue, spotLngValue, req.PreciseLocationOk, req.Discoverable,
-		now, expires, now, userID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "Failed to update presence")
 		return
@@ -177,14 +186,14 @@ func (h *PresenceHandler) Hubs(w http.ResponseWriter, r *http.Request) {
 
 	var peopleRows []row
 		err := h.DB.Select(&peopleRows, `SELECT
-			COALESCE(NULLIF(current_city, ''), NULLIF(current_spot, ''), 'Live location') AS label,
+			COALESCE(NULLIF(current_spot, ''), 'Live location') AS label,
 			AVG(current_lat) AS latitude,
 			AVG(current_lng) AS longitude,
 			COUNT(*) AS count
 		FROM users
 		WHERE is_discoverable = 1
 		AND (presence_expires_at IS NULL OR presence_expires_at > ?)
-		AND (current_city IS NOT NULL OR current_spot IS NOT NULL OR current_lat IS NOT NULL)
+		AND (current_spot IS NOT NULL OR current_lat IS NOT NULL)
 		GROUP BY label`,
 		time.Now().UTC())
 	if err != nil {
