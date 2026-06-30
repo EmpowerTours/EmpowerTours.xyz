@@ -42,9 +42,12 @@ func main() {
 		log.Fatalf("Failed to run migrations: %v", err)
 	}
 
-	// Seed initial data after migrations
-	if err := services.SeedExperiences(db); err != nil {
-		log.Printf("Warning: failed to seed experiences: %v", err)
+	// Demo seed data is opt-in only. Production should show real published
+	// listings from users/admin, not generated sample tours.
+	if os.Getenv("ENABLE_DEMO_SEED") == "1" {
+		if err := services.SeedExperiences(db); err != nil {
+			log.Printf("Warning: failed to seed experiences: %v", err)
+		}
 	}
 
 	// Initialize Stripe
@@ -84,6 +87,7 @@ func main() {
 	waypointHandler := &handlers.WaypointHandler{DB: db}
 	photoHandler := &handlers.PhotoHandler{DB: db, Hub: hub}
 	paymentHandler := &handlers.PaymentHandler{DB: db, StripeWebhookSecret: cfg.StripeWebhookSecret}
+	presenceHandler := &handlers.PresenceHandler{DB: db}
 	appleValidator := services.NewAppleReceiptValidator(cfg)
 	googleValidator := services.NewGoogleReceiptValidator(cfg)
 	subHandler := &handlers.SubscriptionHandler{DB: db, AppleValidator: appleValidator, GoogleValidator: googleValidator}
@@ -103,7 +107,18 @@ func main() {
 
 	// Static pages (privacy policy, terms)
 	staticDir := resolveStaticDir()
+	appDir := filepath.Join(staticDir, "app")
 	r.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.Dir(staticDir))))
+	r.Handle("/_expo/*", http.StripPrefix("/_expo/", http.FileServer(http.Dir(filepath.Join(appDir, "_expo")))))
+	r.Get("/app", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, filepath.Join(appDir, "index.html"))
+	})
+	r.Get("/app/*", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, filepath.Join(appDir, "index.html"))
+	})
+	r.Get("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, filepath.Join(appDir, "favicon.ico"))
+	})
 	r.Get("/privacy", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, filepath.Join(staticDir, "privacy.html"))
 	})
@@ -181,14 +196,24 @@ func main() {
 			r.Get("/bookings/{id}", bookingHandler.GetBooking)
 			r.Patch("/bookings/{id}/cancel", bookingHandler.CancelBooking)
 
+			// Marketplace payments and host/worker payouts for real-world services.
+			// These are separate from app-store subscription billing.
+			r.Post("/payments/create", paymentHandler.CreatePaymentIntent)
+			r.Get("/payments", paymentHandler.ListMyPayments)
+			r.Get("/payments/payout-status", paymentHandler.GetPayoutStatus)
+			r.Post("/payments/connect/onboarding", paymentHandler.CreateConnectOnboardingLink)
+			r.Post("/payments/bookings/{id}/release", paymentHandler.ReleaseBookingPayout)
+			r.Get("/payments/{id}", paymentHandler.GetPayment)
+
 			// Premium transaction and live-tour features remain subscription-gated.
 			r.Group(func(r chi.Router) {
 				r.Use(appMw.RequireSubscription(db))
 
-				// Payments (Stripe)
-				r.Post("/payments/create", paymentHandler.CreatePaymentIntent)
-				r.Get("/payments", paymentHandler.ListMyPayments)
-				r.Get("/payments/{id}", paymentHandler.GetPayment)
+				// Lifetime membership ($100 one-time)
+				r.Post("/payments/lifetime", paymentHandler.CreateLifetimePaymentIntent)
+				r.Get("/membership/status", paymentHandler.GetMembershipStatus)
+				r.Post("/explore/consume-free", paymentHandler.ConsumeFreeExplore)
+				r.Post("/payments/lifetime/confirm-dev", paymentHandler.ConfirmLifetimeDev) // dev helper - remove in prod
 
 				// Experience Sessions (live GPS tracking)
 				r.Post("/sessions/start", sessionHandler.StartSession)
@@ -220,6 +245,11 @@ func main() {
 			r.Get("/chill/travel-plans", chillHandler.GetMyTravelPlans)
 			r.Delete("/chill/travel-plans/{id}", chillHandler.DeleteTravelPlan)
 			r.Get("/chill/discover/nearby", chillHandler.DiscoverByTravel)
+
+			// Presence powers nearby counts and world-map activity.
+			r.Put("/presence", presenceHandler.UpdatePresence)
+			r.Get("/presence/nearby", presenceHandler.Nearby)
+			r.Get("/presence/hubs", presenceHandler.Hubs)
 
 			// Ride dispatch remains a premium operational feature.
 			r.Group(func(r chi.Router) {

@@ -26,6 +26,22 @@ type updateProfileRequest struct {
 	CurrentCity     *string  `json:"currentCity"`
 	Age             *int     `json:"age"`
 	IsDiscoverable  *bool    `json:"isDiscoverable"`
+
+	// Intent
+	EmpowerRole      *string `json:"empowerRole"`
+	BarterOk         *bool   `json:"barterOk"`
+	PaidOk           *bool   `json:"paidOk"`
+	PreferredRegions *string `json:"preferredRegions"`
+	Skills           *string `json:"skills"`
+
+	// Presence
+	CurrentSpot     *string  `json:"currentSpot"`
+	CurrentSpotLat  *float64 `json:"currentSpotLat"`
+	CurrentSpotLng  *float64 `json:"currentSpotLng"`
+	PlanningSpot    *string  `json:"planningSpot"`
+	PlanningDate    *string  `json:"planningDate"`
+	PlanningSpotLat *float64 `json:"planningSpotLat"`
+	PlanningSpotLng *float64 `json:"planningSpotLng"`
 }
 
 type chillRequestBody struct {
@@ -59,18 +75,38 @@ func (h *ChillHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		current_city = COALESCE(?, current_city),
 		age = COALESCE(?, age),
 		is_discoverable = COALESCE(?, is_discoverable),
+		empower_role = COALESCE(?, empower_role),
+		barter_ok = COALESCE(?, barter_ok),
+		paid_ok = COALESCE(?, paid_ok),
+		preferred_regions = COALESCE(?, preferred_regions),
+		skills = COALESCE(?, skills),
+		current_spot = COALESCE(?, current_spot),
+		current_spot_lat = COALESCE(?, current_spot_lat),
+		current_spot_lng = COALESCE(?, current_spot_lng),
+		planning_spot = COALESCE(?, planning_spot),
+		planning_date = COALESCE(?, planning_date),
+		planning_spot_lat = COALESCE(?, planning_spot_lat),
+		planning_spot_lng = COALESCE(?, planning_spot_lng),
 		updated_at = ?
 		WHERE id = ?`,
 		req.Bio, req.ProfilePhotoURL, req.Interests,
 		req.CurrentLat, req.CurrentLng, req.CurrentCity,
-		req.Age, req.IsDiscoverable, time.Now(), userID)
+		req.Age, req.IsDiscoverable,
+		req.EmpowerRole, req.BarterOk, req.PaidOk, req.PreferredRegions, req.Skills,
+		req.CurrentSpot, req.CurrentSpotLat, req.CurrentSpotLng,
+		req.PlanningSpot, req.PlanningDate, req.PlanningSpotLat, req.PlanningSpotLng,
+		time.Now(), userID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "Failed to update profile")
 		return
 	}
 
 	var profile models.UserProfile
-	h.DB.Get(&profile, "SELECT id, display_name, bio, profile_photo_url, interests, current_lat, current_lng, current_city, age, is_discoverable FROM users WHERE id = ?", userID)
+	h.DB.Get(&profile, `SELECT id, display_name, bio, profile_photo_url, interests, current_lat, current_lng, current_city, age, is_discoverable,
+		empower_role, barter_ok, paid_ok, preferred_regions, skills,
+		current_spot, current_spot_lat, current_spot_lng,
+		planning_spot, planning_date, planning_spot_lat, planning_spot_lng
+		FROM users WHERE id = ?`, userID)
 	writeJSON(w, http.StatusOK, profile)
 }
 
@@ -79,7 +115,11 @@ func (h *ChillHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 func (h *ChillHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.GetUserID(r.Context())
 	var profile models.UserProfile
-	err := h.DB.Get(&profile, "SELECT id, display_name, bio, profile_photo_url, interests, current_lat, current_lng, current_city, age, is_discoverable FROM users WHERE id = ?", userID)
+	err := h.DB.Get(&profile, `SELECT id, display_name, bio, profile_photo_url, interests, current_lat, current_lng, current_city, age, is_discoverable,
+		empower_role, barter_ok, paid_ok, preferred_regions, skills,
+		current_spot, current_spot_lat, current_spot_lng,
+		planning_spot, planning_date, planning_spot_lat, planning_spot_lng
+		FROM users WHERE id = ?`, userID)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "Profile not found")
 		return
@@ -97,7 +137,10 @@ func (h *ChillHandler) Discover(w http.ResponseWriter, r *http.Request) {
 
 	var profiles []models.UserProfile
 	err := h.DB.Select(&profiles, `
-		SELECT id, display_name, bio, profile_photo_url, interests, current_lat, current_lng, current_city, age, is_discoverable
+		SELECT id, display_name, bio, profile_photo_url, interests, current_lat, current_lng, current_city, age, is_discoverable,
+			empower_role, barter_ok, paid_ok, preferred_regions, skills,
+			current_spot, current_spot_lat, current_spot_lng,
+			planning_spot, planning_date, planning_spot_lat, planning_spot_lng
 		FROM users
 		WHERE id != ?
 		AND is_discoverable = 1

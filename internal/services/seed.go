@@ -18,8 +18,8 @@ type seedExperience struct {
 	Description  string
 }
 
-// SeedExperiences inserts the initial 4 experiences if the experiences table is
-// empty. It is safe to call on every startup.
+// SeedExperiences inserts local demo experiences. It must only be called in
+// explicitly enabled development environments.
 func SeedExperiences(db *sqlx.DB) error {
 	var count int
 	err := db.Get(&count, "SELECT COUNT(*) FROM experiences")

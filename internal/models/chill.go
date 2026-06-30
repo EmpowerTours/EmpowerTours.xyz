@@ -13,6 +13,22 @@ type UserProfile struct {
 	CurrentCity     *string  `json:"currentCity" db:"current_city"`
 	Age             *int     `json:"age" db:"age"`
 	IsDiscoverable  bool     `json:"isDiscoverable" db:"is_discoverable"`
+
+	// New intent fields for empowered tours matching
+	EmpowerRole      *string `json:"empowerRole" db:"empower_role"`       // traveler | artist | guide | hybrid
+	BarterOk         bool    `json:"barterOk" db:"barter_ok"`
+	PaidOk           bool    `json:"paidOk" db:"paid_ok"`
+	PreferredRegions *string `json:"preferredRegions" db:"preferred_regions"` // JSON
+	Skills           *string `json:"skills" db:"skills"`                     // JSON
+
+	// Lightweight presence
+	CurrentSpot       *string  `json:"currentSpot" db:"current_spot"`
+	CurrentSpotLat    *float64 `json:"currentSpotLat" db:"current_spot_lat"`
+	CurrentSpotLng    *float64 `json:"currentSpotLng" db:"current_spot_lng"`
+	PlanningSpot      *string  `json:"planningSpot" db:"planning_spot"`
+	PlanningDate      *string  `json:"planningDate" db:"planning_date"`
+	PlanningSpotLat   *float64 `json:"planningSpotLat" db:"planning_spot_lat"`
+	PlanningSpotLng   *float64 `json:"planningSpotLng" db:"planning_spot_lng"`
 }
 
 type ChillRequest struct {
