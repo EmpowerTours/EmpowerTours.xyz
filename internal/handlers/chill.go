@@ -72,7 +72,11 @@ func (h *ChillHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		interests = COALESCE(?, interests),
 		current_lat = COALESCE(?, current_lat),
 		current_lng = COALESCE(?, current_lng),
-		current_city = COALESCE(?, current_city),
+		current_city = CASE
+			WHEN ? IS NULL THEN current_city
+			WHEN TRIM(?) = '' THEN NULL
+			ELSE ?
+		END,
 		age = COALESCE(?, age),
 		is_discoverable = COALESCE(?, is_discoverable),
 		empower_role = COALESCE(?, empower_role),
@@ -90,7 +94,7 @@ func (h *ChillHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		updated_at = ?
 		WHERE id = ?`,
 		req.Bio, req.ProfilePhotoURL, req.Interests,
-		req.CurrentLat, req.CurrentLng, req.CurrentCity,
+		req.CurrentLat, req.CurrentLng, req.CurrentCity, req.CurrentCity, req.CurrentCity,
 		req.Age, req.IsDiscoverable,
 		req.EmpowerRole, req.BarterOk, req.PaidOk, req.PreferredRegions, req.Skills,
 		req.CurrentSpot, req.CurrentSpotLat, req.CurrentSpotLng,
