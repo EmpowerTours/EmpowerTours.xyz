@@ -75,6 +75,16 @@ func (h *PresenceHandler) UpdatePresence(w http.ResponseWriter, r *http.Request)
 
 	now := time.Now().UTC()
 	expires := now.Add(45 * time.Minute)
+	cityValue := req.City
+	spotValue := req.Spot
+	spotLatValue := req.Latitude
+	spotLngValue := req.Longitude
+	if req.Latitude != nil && req.Longitude != nil && req.City == nil && req.Spot == nil {
+		cityValue = nil
+		spotValue = nil
+		spotLatValue = nil
+		spotLngValue = nil
+	}
 	_, err := h.DB.Exec(`UPDATE users SET
 		current_lat = COALESCE(?, current_lat),
 		current_lng = COALESCE(?, current_lng),
@@ -88,8 +98,8 @@ func (h *PresenceHandler) UpdatePresence(w http.ResponseWriter, r *http.Request)
 		presence_expires_at = ?,
 		updated_at = ?
 		WHERE id = ?`,
-		req.Latitude, req.Longitude, req.City, req.Spot,
-		req.Latitude, req.Longitude, req.PreciseLocationOk, req.Discoverable,
+		req.Latitude, req.Longitude, cityValue, spotValue,
+		spotLatValue, spotLngValue, req.PreciseLocationOk, req.Discoverable,
 		now, expires, now, userID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "Failed to update presence")
@@ -166,8 +176,8 @@ func (h *PresenceHandler) Hubs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var peopleRows []row
-	err := h.DB.Select(&peopleRows, `SELECT
-			COALESCE(NULLIF(current_city, ''), NULLIF(current_spot, ''), 'Nearby') AS label,
+		err := h.DB.Select(&peopleRows, `SELECT
+			COALESCE(NULLIF(current_city, ''), NULLIF(current_spot, ''), 'Live location') AS label,
 			AVG(current_lat) AS latitude,
 			AVG(current_lng) AS longitude,
 			COUNT(*) AS count
