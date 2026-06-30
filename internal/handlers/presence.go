@@ -155,6 +155,11 @@ func (h *PresenceHandler) Nearby(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "Failed to load nearby people")
 		return
 	}
+	for i := range profiles {
+		if profiles[i].CurrentLat != nil && profiles[i].CurrentLng != nil {
+			profiles[i].CurrentCity = nil
+		}
+	}
 
 	center := geoPoint{Lat: lat, Lng: lng}
 	nearby := make([]presenceProfile, 0)

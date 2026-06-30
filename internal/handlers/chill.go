@@ -53,6 +53,15 @@ type scheduleMeetRequest struct {
 	MeetDate *string `json:"meetDate"` // ISO 8601
 }
 
+func normalizeLiveLocation(profile *models.UserProfile) {
+	if profile == nil {
+		return
+	}
+	if profile.CurrentLat != nil && profile.CurrentLng != nil {
+		profile.CurrentCity = nil
+	}
+}
+
 // ── Profile ──────────────────────────────────────────────────────────
 
 // UpdateProfile sets the user's bio, interests, location for Chill discovery.
@@ -111,6 +120,7 @@ func (h *ChillHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		current_spot, current_spot_lat, current_spot_lng,
 		planning_spot, planning_date, planning_spot_lat, planning_spot_lng
 		FROM users WHERE id = ?`, userID)
+	normalizeLiveLocation(&profile)
 	writeJSON(w, http.StatusOK, profile)
 }
 
@@ -160,6 +170,9 @@ func (h *ChillHandler) Discover(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "Failed to load profiles")
 		return
+	}
+	for i := range profiles {
+		normalizeLiveLocation(&profiles[i])
 	}
 	if profiles == nil {
 		profiles = []models.UserProfile{}
@@ -248,6 +261,7 @@ func (h *ChillHandler) GetPendingRequests(w http.ResponseWriter, r *http.Request
 	for _, req := range requests {
 		var profile models.UserProfile
 		h.DB.Get(&profile, "SELECT id, display_name, bio, profile_photo_url, interests, current_lat, current_lng, current_city, age, is_discoverable FROM users WHERE id = ?", req.FromUserID)
+		normalizeLiveLocation(&profile)
 		result = append(result, requestWithProfile{ChillRequest: req, FromUser: profile})
 	}
 
@@ -362,6 +376,8 @@ func (h *ChillHandler) createMatch(w http.ResponseWriter, user1ID, user2ID, requ
 	var user1, user2 models.UserProfile
 	h.DB.Get(&user1, "SELECT id, display_name, bio, profile_photo_url, interests, current_lat, current_lng, current_city, age, is_discoverable FROM users WHERE id = ?", user1ID)
 	h.DB.Get(&user2, "SELECT id, display_name, bio, profile_photo_url, interests, current_lat, current_lng, current_city, age, is_discoverable FROM users WHERE id = ?", user2ID)
+	normalizeLiveLocation(&user1)
+	normalizeLiveLocation(&user2)
 
 	// Calculate midpoint
 	var meetLat, meetLng *float64
@@ -371,15 +387,7 @@ func (h *ChillHandler) createMatch(w http.ResponseWriter, user1ID, user2ID, requ
 		meetLat = &midLat
 		meetLng = &midLng
 
-		// Generate a friendly meeting location name
 		name := "Halfway Point"
-		if user1.CurrentCity != nil && user2.CurrentCity != nil {
-			if *user1.CurrentCity == *user2.CurrentCity {
-				name = "Meet in " + *user1.CurrentCity
-			} else {
-				name = "Between " + *user1.CurrentCity + " & " + *user2.CurrentCity
-			}
-		}
 		meetName = &name
 
 		// Find nearest experience to the midpoint
