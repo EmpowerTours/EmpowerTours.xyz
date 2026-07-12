@@ -3,6 +3,10 @@
 // catalog from the same Envio (HyperIndex) GraphQL indexer the miniapp uses,
 // so the "friendly" streaming site at api.empowertours.xyz stays in sync with
 // what artists publish, without duplicating any on-chain indexing.
+//
+// Artists are identified on-chain by wallet address, so the service resolves
+// each artist's Farcaster display name (from their fid) for a friendly label,
+// caching results since names rarely change.
 package music
 
 import (
@@ -11,6 +15,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"sort"
 	"strconv"
 	"sync"
@@ -19,12 +24,13 @@ import (
 
 // Song is one playable track in the catalog.
 type Song struct {
-	TokenID   string `json:"tokenId"`
-	Name      string `json:"name"`
-	Artist    string `json:"artist"`    // on-chain artist wallet address
-	ArtistFid string `json:"artistFid"` // Farcaster ID of the artist
-	AudioURL  string `json:"audioUrl"`  // resolved IPFS gateway URL (streamable)
-	ImageURL  string `json:"imageUrl"`  // cover art URL
+	TokenID    string `json:"tokenId"`
+	Name       string `json:"name"`
+	Artist     string `json:"artist"`     // on-chain artist wallet address
+	ArtistFid  string `json:"artistFid"`  // Farcaster ID of the artist
+	ArtistName string `json:"artistName"` // resolved Farcaster display name ("" if unknown)
+	AudioURL   string `json:"audioUrl"`   // resolved IPFS gateway URL (streamable)
+	ImageURL   string `json:"imageUrl"`   // cover art URL
 }
 
 // Service fetches and caches the catalog.
@@ -36,6 +42,16 @@ type Service struct {
 	mu       sync.Mutex
 	cache    []Song
 	fetchedA time.Time
+
+	// artist fid -> display name, cached (names rarely change).
+	nameMu  sync.Mutex
+	names   map[string]nameEntry
+	nameTTL time.Duration
+}
+
+type nameEntry struct {
+	name string
+	at   time.Time
 }
 
 // NewService creates a catalog service for the given Envio GraphQL endpoint.
@@ -44,6 +60,8 @@ func NewService(endpoint string) *Service {
 		endpoint: endpoint,
 		client:   &http.Client{Timeout: 20 * time.Second},
 		ttl:      30 * time.Second,
+		names:    make(map[string]nameEntry),
+		nameTTL:  6 * time.Hour,
 	}
 }
 
@@ -174,5 +192,117 @@ func (s *Service) fetch(ctx context.Context) ([]Song, error) {
 		return songs[i].TokenID > songs[j].TokenID
 	})
 
+	// Enrich with the artist's Farcaster display name (best effort, cached).
+	for i := range songs {
+		if name := s.resolveName(ctx, songs[i].ArtistFid); name != "" {
+			songs[i].ArtistName = name
+		}
+	}
+
 	return songs, nil
+}
+
+// resolveName maps a Farcaster fid to a friendly display name, cached for
+// nameTTL. It never blocks the catalog: on any failure it returns "" and the
+// caller falls back to a shortened wallet address.
+func (s *Service) resolveName(ctx context.Context, fid string) string {
+	if fid == "" || fid == "0" {
+		return ""
+	}
+
+	s.nameMu.Lock()
+	if e, ok := s.names[fid]; ok && time.Since(e.at) < s.nameTTL {
+		s.nameMu.Unlock()
+		return e.name
+	}
+	s.nameMu.Unlock()
+
+	name := s.fetchName(ctx, fid)
+
+	// Cache even empty results to avoid hammering the name servers for fids
+	// that don't resolve.
+	s.nameMu.Lock()
+	s.names[fid] = nameEntry{name: name, at: time.Now()}
+	s.nameMu.Unlock()
+	return name
+}
+
+// fetchName tries the Warpcast user endpoint (friendly display name) first,
+// then the official Farcaster fname server (handle) as a fallback. Both are
+// public and require no API key.
+func (s *Service) fetchName(ctx context.Context, fid string) string {
+	if n := s.fetchWarpcastName(ctx, fid); n != "" {
+		return n
+	}
+	return s.fetchFnameHandle(ctx, fid)
+}
+
+func (s *Service) fetchWarpcastName(ctx context.Context, fid string) string {
+	u := "https://api.warpcast.com/v2/user-by-fid?fid=" + url.QueryEscape(fid)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	if err != nil {
+		return ""
+	}
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return ""
+	}
+	var out struct {
+		Result struct {
+			User struct {
+				Username    string `json:"username"`
+				DisplayName string `json:"displayName"`
+			} `json:"user"`
+		} `json:"result"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return ""
+	}
+	if out.Result.User.DisplayName != "" {
+		return out.Result.User.DisplayName
+	}
+	if out.Result.User.Username != "" {
+		return "@" + out.Result.User.Username
+	}
+	return ""
+}
+
+func (s *Service) fetchFnameHandle(ctx context.Context, fid string) string {
+	u := "https://fnames.farcaster.xyz/transfers?fid=" + url.QueryEscape(fid)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	if err != nil {
+		return ""
+	}
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return ""
+	}
+	var out struct {
+		Transfers []struct {
+			Username string `json:"username"`
+			To       int64  `json:"to"`
+		} `json:"transfers"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return ""
+	}
+	// The current username is the last transfer TO this fid.
+	name := ""
+	for _, t := range out.Transfers {
+		if strconv.FormatInt(t.To, 10) == fid && t.Username != "" {
+			name = t.Username
+		}
+	}
+	if name != "" {
+		return "@" + name
+	}
+	return ""
 }
