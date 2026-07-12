@@ -16,6 +16,7 @@ import (
 	"github.com/empowertours/empowertours-app/internal/database"
 	"github.com/empowertours/empowertours-app/internal/handlers"
 	appMw "github.com/empowertours/empowertours-app/internal/middleware"
+	"github.com/empowertours/empowertours-app/internal/music"
 	"github.com/empowertours/empowertours-app/internal/realtime"
 	"github.com/empowertours/empowertours-app/internal/services"
 	"github.com/go-chi/chi/v5"
@@ -108,6 +109,20 @@ func main() {
 	// Static pages (privacy policy, terms)
 	staticDir := resolveStaticDir()
 	appDir := filepath.Join(staticDir, "app")
+
+	// Music streaming (public, no auth): friendly web player + catalog API
+	// sourced from the Farcaster miniapp's Envio Music NFT indexer.
+	musicHandler := &handlers.MusicHandler{
+		Svc:       music.NewService(cfg.EnvioEndpoint),
+		StaticDir: staticDir,
+	}
+	log.Printf("Music streaming enabled (indexer: %s)", cfg.EnvioEndpoint)
+	r.Get("/", musicHandler.Player)
+	r.Get("/listen", musicHandler.Player)
+	r.Get("/api/v1/music", musicHandler.ListCatalog)
+	r.Get("/api/v1/music/{tokenId}", musicHandler.GetSong)
+	r.Get("/stream/{tokenId}", musicHandler.Stream)
+
 	r.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.Dir(staticDir))))
 	r.Handle("/_expo/*", http.StripPrefix("/_expo/", http.FileServer(http.Dir(filepath.Join(appDir, "_expo")))))
 	r.Get("/app", func(w http.ResponseWriter, r *http.Request) {

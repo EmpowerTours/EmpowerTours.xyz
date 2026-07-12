@@ -23,6 +23,7 @@ type Config struct {
 	GooglePlayCredentialsJSON string
 	FacebookAppID            string
 	FacebookAppSecret        string
+	EnvioEndpoint            string
 }
 
 func Load() (*Config, error) {
@@ -46,6 +47,10 @@ func Load() (*Config, error) {
 		GooglePlayCredentialsJSON: os.Getenv("GOOGLE_PLAY_CREDENTIALS_JSON"),
 		FacebookAppID:            os.Getenv("FACEBOOK_APP_ID"),
 		FacebookAppSecret:        os.Getenv("FACEBOOK_APP_SECRET"),
+		// EnvioEndpoint is the EmpowerTours Music NFT indexer (same one the
+		// Farcaster miniapp uses). The URL rotates when the indexer is
+		// redeployed, so keep it overridable via env.
+		EnvioEndpoint:            getEnv("ENVIO_ENDPOINT", "https://indexer.hyperindex.xyz/179604b/v1/graphql"),
 	}
 
 	return cfg, nil
