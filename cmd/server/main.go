@@ -123,6 +123,11 @@ func main() {
 	r.Get("/api/v1/music/{tokenId}", musicHandler.GetSong)
 	r.Get("/stream/{tokenId}", musicHandler.Stream)
 
+	// Analytics-only play counts (no auth, no rewards — see PlaysHandler).
+	playsHandler := &handlers.PlaysHandler{DB: db}
+	r.Post("/api/v1/plays/{tokenId}", playsHandler.RecordPlay)
+	r.Get("/api/v1/plays", playsHandler.ListPlays)
+
 	r.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.Dir(staticDir))))
 	r.Handle("/_expo/*", http.StripPrefix("/_expo/", http.FileServer(http.Dir(filepath.Join(appDir, "_expo")))))
 	r.Get("/app", func(w http.ResponseWriter, r *http.Request) {
