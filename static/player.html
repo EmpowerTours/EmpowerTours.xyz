@@ -170,6 +170,10 @@
             <svg id="hero-icon" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
             <span id="hero-label">Play</span>
           </button>
+          <button class="play-lg" id="shuffle-btn" style="background:transparent;color:var(--cream);box-shadow:none;border:1px solid var(--line)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
+            <span>Shuffle</span>
+          </button>
         </div>
       </div>
     </div>
@@ -223,12 +227,17 @@
 (function(){
   var PLAY='<path d="M8 5v14l11-7z"/>';
   var PAUSE='<path d="M6 5h4v14H6zm8 0h4v14h-4z"/>';
-  var songs=[], idx=-1;
+  var songs=[], idx=-1, hist=[];
   var audio=document.getElementById('audio');
 
   var el=function(id){return document.getElementById(id)};
   function shortAddr(a){ if(!a) return 'Unknown artist'; return a.length>12 ? a.slice(0,6)+'…'+a.slice(-4) : a; }
   function artistLabel(s){ return s.artistName || shortAddr(s.artist); }
+  // This is a radio: shuffle the order and pick random next tracks.
+  function shuffleArr(a){ a=a.slice(); for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
+  function pickRandom(len, ex){ if(len<=1) return 0; var r=ex; while(r===ex) r=Math.floor(Math.random()*len); return r; }
+  function randomNext(){ if(songs.length) playAt(pickRandom(songs.length, idx)); }
+  function goPrev(){ if(hist.length>=2){ hist.pop(); loadInto(hist[hist.length-1], true); } else { randomNext(); } }
 
   // build waveform bars once
   var wave=el('wave'); for(var i=0;i<28;i++){ wave.appendChild(document.createElement('i')); }
@@ -274,7 +283,7 @@
     el('bar').classList.add('show');
     if(autoplay) audio.play().catch(function(){});
   }
-  function playAt(i){ loadInto(i,true); }
+  function playAt(i){ hist.push(i); loadInto(i,true); }
 
   function setPlaying(p){
     document.body.classList.toggle('playing',p);
@@ -283,17 +292,18 @@
     el('hero-label').textContent=p?'Pause':'Play';
   }
   function toggle(){
-    if(idx<0) return playAt(0);
+    if(idx<0) return randomNext();
     if(audio.paused) audio.play().catch(function(){}); else audio.pause();
   }
 
   el('toggle').addEventListener('click',toggle);
   el('hero-play').addEventListener('click',toggle);
-  el('next').addEventListener('click',function(){ playAt((idx+1)%songs.length); });
-  el('prev').addEventListener('click',function(){ playAt((idx-1+songs.length)%songs.length); });
+  el('shuffle-btn').addEventListener('click',randomNext);
+  el('next').addEventListener('click',randomNext);
+  el('prev').addEventListener('click',goPrev);
   audio.addEventListener('play',function(){setPlaying(true)});
   audio.addEventListener('pause',function(){setPlaying(false)});
-  audio.addEventListener('ended',function(){ playAt((idx+1)%songs.length); });
+  audio.addEventListener('ended',randomNext);
   audio.addEventListener('timeupdate',function(){
     var pct=audio.duration?(audio.currentTime/audio.duration*100):0;
     el('fill').style.width=pct+'%';
@@ -304,7 +314,7 @@
   fetch('/api/v1/music',{headers:{'accept':'application/json'}})
     .then(function(r){ if(!r.ok) throw new Error('status '+r.status); return r.json(); })
     .then(function(j){
-      songs=(j.data&&j.data.songs)||[];
+      songs=shuffleArr((j.data&&j.data.songs)||[]);
       el('loading').hidden=true;
       if(!songs.length){ show('empty'); return; }
       show(''); render();
