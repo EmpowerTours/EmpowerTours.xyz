@@ -113,8 +113,9 @@ func main() {
 	// Music streaming (public, no auth): friendly web player + catalog API
 	// sourced from the Farcaster miniapp's Envio Music NFT indexer.
 	musicHandler := &handlers.MusicHandler{
-		Svc:       music.NewService(cfg.EnvioEndpoint),
-		StaticDir: staticDir,
+		Svc:        music.NewService(cfg.EnvioEndpoint),
+		StaticDir:  staticDir,
+		MiniappURL: cfg.MiniappURL,
 	}
 	log.Printf("Music streaming enabled (indexer: %s)", cfg.EnvioEndpoint)
 	r.Get("/", musicHandler.Player)
@@ -122,6 +123,7 @@ func main() {
 	r.Get("/api/v1/music", musicHandler.ListCatalog)
 	r.Get("/api/v1/music/{tokenId}", musicHandler.GetSong)
 	r.Get("/stream/{tokenId}", musicHandler.Stream)
+	r.Get("/api/v1/health/indexer", musicHandler.IndexerHealth)
 
 	// Analytics-only play counts (no auth, no rewards — see PlaysHandler).
 	playsHandler := &handlers.PlaysHandler{DB: db}

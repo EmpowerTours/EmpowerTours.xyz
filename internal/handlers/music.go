@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"encoding/json"
 	"net/http"
 	"path/filepath"
+	"time"
 
 	"github.com/empowertours/empowertours-app/internal/music"
 	"github.com/go-chi/chi/v5"
@@ -12,8 +14,9 @@ import (
 // catalog API plus a friendly web player page. It is intentionally open so
 // anyone can open api.empowertours.xyz and listen to the artists' music.
 type MusicHandler struct {
-	Svc       *music.Service
-	StaticDir string
+	Svc        *music.Service
+	StaticDir  string
+	MiniappURL string // Farcaster mini app base URL, for the indexer drift check
 }
 
 // ListCatalog returns the full catalog of artists' songs.
@@ -69,4 +72,69 @@ func (h *MusicHandler) Stream(w http.ResponseWriter, r *http.Request) {
 // GET / and GET /listen
 func (h *MusicHandler) Player(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, filepath.Join(h.StaticDir, "player.html"))
+}
+
+// IndexerHealth cross-checks that this API and the Farcaster mini app are
+// reading the SAME Envio indexer. If the indexer is redeployed, its URL rotates;
+// if only one side's env var is updated they "drift" and the API silently shows
+// a stale or empty catalog. This endpoint makes that visible (and returns 503 on
+// confirmed drift so an uptime monitor can page).
+// GET /api/v1/health/indexer
+func (h *MusicHandler) IndexerHealth(w http.ResponseWriter, r *http.Request) {
+	apiEndpoint := h.Svc.Endpoint()
+	songs, _ := h.Svc.Songs(r.Context())
+	apiCount := len(songs)
+
+	// The mini app's debug route reports the indexer it uses + its song count.
+	var mini struct {
+		EnvioEndpoint string `json:"envioEndpoint"`
+		SongsCount    int    `json:"songsCount"`
+	}
+	miniReached := false
+	if h.MiniappURL != "" {
+		client := &http.Client{Timeout: 15 * time.Second}
+		req, err := http.NewRequestWithContext(r.Context(), http.MethodGet,
+			h.MiniappURL+"/api/live-radio?action=debug-songs", nil)
+		if err == nil {
+			if resp, derr := client.Do(req); derr == nil {
+				defer resp.Body.Close()
+				if resp.StatusCode == http.StatusOK &&
+					json.NewDecoder(resp.Body).Decode(&mini) == nil {
+					miniReached = true
+				}
+			}
+		}
+	}
+
+	issues := []string{}
+	critical := false
+	if miniReached {
+		if mini.EnvioEndpoint != "" && mini.EnvioEndpoint != apiEndpoint {
+			issues = append(issues, "indexer_endpoint_mismatch")
+			critical = true
+		}
+		if apiCount == 0 && mini.SongsCount > 0 {
+			issues = append(issues, "api_catalog_empty")
+			critical = true
+		} else if apiCount != mini.SongsCount {
+			// Usually just indexing lag or the 30s cache — a warning, not a page.
+			issues = append(issues, "catalog_count_differs")
+		}
+	} else {
+		issues = append(issues, "miniapp_unreachable")
+	}
+
+	status := http.StatusOK
+	if critical {
+		status = http.StatusServiceUnavailable
+	}
+	writeJSON(w, status, map[string]any{
+		"ok":               !critical,
+		"apiEndpoint":      apiEndpoint,
+		"miniappEndpoint":  mini.EnvioEndpoint,
+		"apiCount":         apiCount,
+		"miniappCount":     mini.SongsCount,
+		"miniappReachable": miniReached,
+		"issues":           issues,
+	})
 }

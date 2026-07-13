@@ -126,6 +126,9 @@ func (s *Service) Songs(ctx context.Context) ([]Song, error) {
 	return songs, nil
 }
 
+// Endpoint returns the Envio GraphQL endpoint this service queries.
+func (s *Service) Endpoint() string { return s.endpoint }
+
 // Song returns a single track by tokenId.
 func (s *Service) Song(ctx context.Context, tokenID string) (*Song, bool, error) {
 	songs, err := s.Songs(ctx)

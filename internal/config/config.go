@@ -24,6 +24,7 @@ type Config struct {
 	FacebookAppID            string
 	FacebookAppSecret        string
 	EnvioEndpoint            string
+	MiniappURL               string
 }
 
 func Load() (*Config, error) {
@@ -51,6 +52,9 @@ func Load() (*Config, error) {
 		// Farcaster miniapp uses). The URL rotates when the indexer is
 		// redeployed, so keep it overridable via env.
 		EnvioEndpoint:            getEnv("ENVIO_ENDPOINT", "https://indexer.hyperindex.xyz/179604b/v1/graphql"),
+		// MiniappURL is the Farcaster mini app, used to cross-check that our
+		// indexer endpoint hasn't drifted from the one the mini app uses.
+		MiniappURL:               getEnv("MINIAPP_URL", "https://fcempowertours-production-6551.up.railway.app"),
 	}
 
 	return cfg, nil
