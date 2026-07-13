@@ -14,6 +14,7 @@ func CORS() func(http.Handler) http.Handler {
 			"https://www.empowertours.xyz",
 			"https://api.empowertours.xyz",
 			"https://*.up.railway.app",
+			"https://*.exp.direct",
 			"http://localhost:3000",
 			"http://localhost:8081",
 			"http://localhost:8082",
