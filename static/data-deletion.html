@@ -7,44 +7,62 @@
 <style>
 body{font-family:-apple-system,system-ui,sans-serif;max-width:700px;margin:0 auto;padding:40px 20px;color:#1a1a2e;line-height:1.7;background:#fafafa}
 h1{font-size:28px;margin-bottom:4px}
-h2{font-size:18px;margin-top:32px;color:#0f172a}
+h2{font-size:20px;margin-top:40px;color:#0f172a;border-top:1px solid #e2e6ec;padding-top:24px}
+h3{font-size:16px;margin-top:26px;color:#0f172a}
 .updated{color:#666;font-size:14px;margin-bottom:32px}
 p,li{font-size:15px;color:#333}
 ul,ol{padding-left:20px}
 a{color:#0ea5e9}
 code{background:#eef2f7;padding:2px 6px;border-radius:4px;font-size:13px}
+.scope{background:#eef6fb;border-left:3px solid #0ea5e9;padding:14px 18px;margin:20px 0;font-size:14px}
 .footer{margin-top:48px;padding-top:24px;border-top:1px solid #ddd;font-size:13px;color:#888}
 </style>
 </head>
 <body>
 <h1>User Data Deletion Instructions</h1>
-<p class="updated">Last updated: April 8, 2026</p>
+<p class="updated">Last updated: July 22, 2026</p>
 
-<p>EmpowerTours takes user privacy seriously. You may request deletion of your personal data — including any data we received from Meta/Facebook when you signed in with Facebook — at any time, using one of the methods below.</p>
+<p>How you delete your data depends on which EmpowerTours product you use. Find yours below.</p>
 
-<h2>Option 1 — Delete from inside the app</h2>
-<ol>
-<li>Open the EmpowerTours mobile app and log in.</li>
-<li>Go to <strong>Profile → Settings → Account</strong>.</li>
-<li>Tap <strong>Delete my account</strong> and confirm.</li>
-<li>Your account, profile, sessions, photos, and Facebook linkage are permanently removed within 30 days.</li>
-</ol>
+<h2>EmpowerTours Radio (the music app)</h2>
 
-<h2>Option 2 — Email request</h2>
+<div class="scope">This is the free music app published on Google Play and the App Store. It has <strong>no account and no sign-in screen</strong>.</div>
+
+<p>The Radio app does not collect any personal data, so <strong>there is no personal data associated with you to delete</strong>.</p>
+
+<p>The only thing the app sends us is an anonymous play count: when a track starts, we record which track was played, identified solely by its track ID. That event carries no account, no device identifier, and no advertising identifier. Because nothing links it to you or your device, we have no way to identify "your" data — and equally, no way for anyone else to.</p>
+
+<p>To remove the app entirely, uninstall it from your device. Nothing is left behind on our servers that refers to you.</p>
+
+<p>Questions about the Radio app and privacy: <a href="mailto:admin@empowertours.xyz">admin@empowertours.xyz</a>.<br>
+To report a track or raise a rights/DMCA concern: <a href="mailto:support@empowertours.xyz">support@empowertours.xyz</a>.</p>
+
+<h2>EmpowerTours account (travel and social features)</h2>
+
+<div class="scope">This applies only if you created an EmpowerTours account for travel and social features, on the web or in our full-featured app. It does <strong>not</strong> apply to the Radio app above.</div>
+
+<p>You may request deletion of your personal data — including any data we received from Meta/Facebook when you signed in with Facebook — at any time, using one of the methods below.</p>
+
+<h3>Option 1 — Email request</h3>
 <p>Send an email from the address associated with your account to
 <a href="mailto:admin@empowertours.xyz">admin@empowertours.xyz</a> with the subject line
 <code>Delete my account</code>. Include either your registered email or your Facebook display name so we can locate your record. We will confirm deletion within 30 days.</p>
 
-<h2>Option 3 — Facebook Data Deletion Callback</h2>
-<p>If you remove the EmpowerTours app from your Facebook account, Facebook will automatically notify our deletion endpoint and we will delete all data linked to your Facebook user ID.</p>
+<h3>Option 2 — Delete from inside the app</h3>
+<p>If your version of the EmpowerTours app includes account features, sign in and go to
+<strong>Profile &rarr; Settings &rarr; Account</strong>, then tap <strong>Delete my account</strong> and confirm.
+Your account, profile, sessions, photos, and Facebook linkage are permanently removed within 30 days.</p>
+
+<h3>Option 3 — Facebook Data Deletion Callback</h3>
+<p>If you remove the EmpowerTours app from your Facebook account, Facebook automatically notifies our deletion endpoint and we delete all data linked to your Facebook user ID.</p>
 <p>Deletion callback URL (used by Facebook only): <code>https://api.empowertours.xyz/auth/facebook/data-deletion</code></p>
 <p>To remove the app from Facebook:</p>
 <ol>
-<li>Go to <a href="https://www.facebook.com/settings?tab=applications">Facebook Settings → Apps and Websites</a>.</li>
+<li>Go to <a href="https://www.facebook.com/settings?tab=applications">Facebook Settings &rarr; Apps and Websites</a>.</li>
 <li>Find <strong>EmpowerTours</strong> in the list and click <strong>Remove</strong>.</li>
 </ol>
 
-<h2>What gets deleted</h2>
+<h3>What gets deleted</h3>
 <ul>
 <li>Your account record (email, display name, profile photo, wallet address)</li>
 <li>Your Facebook user ID and any profile fields received from Facebook</li>
@@ -52,13 +70,15 @@ code{background:#eef2f7;padding:2px 6px;border-radius:4px;font-size:13px}
 <li>Your subscription metadata (payment processor records are governed by Stripe / Apple / Google)</li>
 </ul>
 
-<h2>Tracking your request</h2>
-<p>When you submit a deletion request via the app or email, we issue you a confirmation code. You can check the status by emailing
+<h3>Tracking your request</h3>
+<p>When you submit a deletion request, we issue a confirmation code. You can check the status by emailing
 <a href="mailto:admin@empowertours.xyz">admin@empowertours.xyz</a> with your code.</p>
 
 <h2>Contact</h2>
-<p>For any privacy or deletion questions:<br>
+<p>For any privacy or deletion question:<br>
 Email: <a href="mailto:admin@empowertours.xyz">admin@empowertours.xyz</a></p>
+
+<p>See also our <a href="/privacy">Privacy Policy</a>.</p>
 
 <div class="footer">EmpowerTours &copy; 2026. All rights reserved.</div>
 </body>
