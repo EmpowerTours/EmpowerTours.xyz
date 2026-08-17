@@ -107,6 +107,23 @@
   .t-name{font-weight:600;font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .t-artist{color:var(--muted);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .t-badge{font-family:"Space Mono",monospace;font-size:11px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:4px 9px}
+  /* Live radio join panel. Deliberately secondary to the catalog: pressing play
+     must stay free and sign-in free, so this never gates the page. */
+  .live{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;
+    border:1px solid var(--line);border-radius:16px;padding:16px 18px;margin:0 0 22px}
+  .live-copy{min-width:0}
+  .live-title{font-family:"Bricolage Grotesque",sans-serif;font-weight:700;font-size:16px;
+    display:flex;align-items:center;gap:8px}
+  .live-dot{width:8px;height:8px;border-radius:50%;background:var(--amber);
+    box-shadow:0 0 0 0 rgba(91,156,255,.6);animation:livepulse 2s infinite}
+  @keyframes livepulse{70%{box-shadow:0 0 0 7px rgba(91,156,255,0)}100%{box-shadow:0 0 0 0 rgba(91,156,255,0)}}
+  @media (prefers-reduced-motion:reduce){.live-dot{animation:none}}
+  .live-sub{color:var(--muted);font-size:13.5px;margin-top:3px}
+  .live-btn{font:inherit;font-size:14px;font-weight:600;color:var(--cream);background:transparent;
+    border:1px solid var(--line);border-radius:999px;padding:9px 16px;cursor:pointer;white-space:nowrap}
+  .live-btn:hover:not(:disabled){border-color:var(--amber)}
+  .live-btn:disabled{opacity:.55;cursor:default}
+  .live-btn:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
 
   /* ---- states ---- */
   .state{padding:56px 0;text-align:center;color:var(--muted)}
@@ -179,6 +196,14 @@
     </div>
   </section>
 
+  <section class="live" id="live" hidden>
+    <div class="live-copy">
+      <div class="live-title">Live radio <span class="live-dot" id="live-dot" hidden></span></div>
+      <div class="live-sub" id="live-sub">Subscribers can tune into the live stream and earn while they listen.</div>
+    </div>
+    <button class="live-btn" id="live-btn">Connect wallet</button>
+  </section>
+
   <section id="listSection" hidden>
     <div class="list-head">
       <h2>The catalog</h2>
@@ -236,7 +261,10 @@
   // This is a radio: shuffle the order and pick random next tracks.
   function shuffleArr(a){ a=a.slice(); for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
   function pickRandom(len, ex){ if(len<=1) return 0; var r=ex; while(r===ex) r=Math.floor(Math.random()*len); return r; }
-  function randomNext(){ if(songs.length) playAt(pickRandom(songs.length, idx)); }
+  // While tuned into the live radio the stream decides what plays next, so the
+  // on-demand shuffle must stand down or the two fight over the audio element.
+  var radioMode=false;
+  function randomNext(){ if(radioMode) return; if(songs.length) playAt(pickRandom(songs.length, idx)); }
   function goPrev(){ if(hist.length>=2){ hist.pop(); loadInto(hist[hist.length-1], true); } else { randomNext(); } }
 
   // build waveform bars once
@@ -355,6 +383,168 @@
   });
 
   function show(id){['loading','empty','error'].forEach(function(s){el(s).hidden=(s!==id)});}
+
+  // ── Live radio ──────────────────────────────────────────────────────────
+  //
+  // Free listening above needs no wallet and never will. This is the opt-in
+  // path: a subscriber signs once, joins the same live stream the Farcaster
+  // mini app plays, and their listening is what the scheduler turns into
+  // on-chain plays — which is what pays the artist. Listening here without
+  // signing in stays free and counts for nothing on-chain, by design: the
+  // subscription contract can only record a play against an address it knows.
+  var MINIAPP='https://fcempowertours-production-6551.up.railway.app';
+  var HEARTBEAT_MS=30000, TICK_MS=15000, STATE_MS=10000;
+  var LISTEN_CONTEXT='radio-listen';
+
+  var liveAddr=null, liveSession=null, liveTimers=[], liveTokenId=null;
+
+  function liveSay(msg){ el('live-sub').textContent=msg; }
+  function liveBtn(label, disabled){
+    var b=el('live-btn'); b.textContent=label; b.disabled=!!disabled;
+  }
+  function api(path, opts){
+    return fetch(MINIAPP+path, opts).then(function(r){
+      return r.json().then(function(j){ return { status:r.status, body:j }; });
+    });
+  }
+
+  /** One signature per hour buys a session token; heartbeats then cost nothing. */
+  function mintSession(){
+    return api('/api/auth/wallet-nonce?address='+encodeURIComponent(liveAddr)+'&context='+LISTEN_CONTEXT)
+      .then(function(res){
+        if(!res.body||!res.body.success||!res.body.message) throw new Error('Could not start sign-in');
+        return window.ethereum.request({
+          method:'personal_sign',
+          params:[res.body.message, liveAddr]
+        }).then(function(signature){
+          return api('/api/live-radio/session',{
+            method:'POST',
+            headers:{
+              'content-type':'application/json',
+              'x-wallet-address':liveAddr,
+              'x-wallet-signature':signature,
+              'x-wallet-timestamp':String(res.body.timestamp),
+              'x-wallet-nonce':res.body.nonce
+            },
+            body:JSON.stringify({userAddress:liveAddr})
+          });
+        });
+      })
+      .then(function(res){
+        if(!res.body||!res.body.success||!res.body.token) throw new Error(res.body&&res.body.error||'Session refused');
+        liveSession=res.body.token;
+        return liveSession;
+      });
+  }
+
+  function heartbeat(){
+    if(!liveSession||!liveTokenId) return;
+    var send=function(token){
+      return api('/api/live-radio',{
+        method:'POST',
+        headers:{'content-type':'application/json','x-radio-session':token},
+        body:JSON.stringify({action:'heartbeat', masterTokenId:liveTokenId})
+      });
+    };
+    send(liveSession).then(function(res){
+      // Session aged out mid-listen. One fresh signature, then carry on.
+      if(res.status===401){ return mintSession().then(send); }
+    }).catch(function(e){ console.warn('[Live] heartbeat', e.message); });
+  }
+
+  // Nothing else advances the stream — the scheduler only runs when a client
+  // pokes it, so a listener here keeps the radio moving for everyone.
+  function tick(){
+    fetch(MINIAPP+'/api/live-radio/tick',{method:'POST'}).catch(function(){});
+  }
+
+  function syncState(){
+    // No action param: the GET handler's default branch is the radio state.
+    return api('/api/live-radio').then(function(res){
+      var st=res.body&&res.body.state;
+      var cur=st&&st.currentSong;
+      if(!cur||!cur.audioUrl){ liveSay('The stream is between tracks…'); return; }
+
+      if(cur.tokenId!==liveTokenId){
+        liveTokenId=cur.tokenId;
+        el('np-name').textContent=cur.name||'Untitled';
+        el('np-artist').textContent=cur.artist||'—';
+        el('bar-name').textContent=cur.name||'Untitled';
+        el('bar-artist').textContent=cur.artist||'—';
+        if(cur.imageUrl){
+          el('np-art').style.backgroundImage='url('+cur.imageUrl+')';
+          el('bar-art').style.backgroundImage='url('+cur.imageUrl+')';
+        }
+        audio.src=cur.audioUrl;
+        // Join mid-track rather than restarting it, so every listener hears the
+        // same moment of the same song.
+        var elapsed=(Date.now()-cur.startedAt)/1000;
+        audio.play().then(function(){
+          if(elapsed>0 && isFinite(elapsed) && elapsed<(cur.duration||0)){
+            try{ audio.currentTime=elapsed; }catch(e){}
+          }
+        }).catch(function(){});
+        el('bar').classList.add('show');
+        updateMediaSession({name:cur.name, artist:cur.artist, artistName:cur.artist, imageUrl:cur.imageUrl});
+        liveSay('On air: '+(cur.name||'Untitled')+' — '+(cur.artist||'—'));
+      }
+    }).catch(function(e){ console.warn('[Live] state', e.message); });
+  }
+
+  function startLive(){
+    radioMode=true;
+    el('live-dot').hidden=false;
+    liveBtn('Leave radio');
+    syncState(); tick(); heartbeat();
+    liveTimers.push(setInterval(syncState, STATE_MS));
+    liveTimers.push(setInterval(tick, TICK_MS));
+    liveTimers.push(setInterval(heartbeat, HEARTBEAT_MS));
+  }
+
+  function stopLive(){
+    radioMode=false; liveTokenId=null;
+    liveTimers.forEach(clearInterval); liveTimers=[];
+    el('live-dot').hidden=true;
+    liveBtn('Tune in');
+    liveSay('Left the live stream. The catalog above is still yours.');
+    audio.pause();
+  }
+
+  function joinLive(){
+    if(radioMode) return stopLive();
+    liveBtn('Connecting…', true);
+
+    Promise.resolve()
+      .then(function(){
+        if(liveAddr) return liveAddr;
+        return window.ethereum.request({method:'eth_requestAccounts'}).then(function(accts){
+          if(!accts||!accts.length) throw new Error('No account selected');
+          liveAddr=accts[0];
+          return liveAddr;
+        });
+      })
+      .then(function(){
+        return api('/api/music/check-subscription?address='+encodeURIComponent(liveAddr));
+      })
+      .then(function(res){
+        if(!res.body||!res.body.hasSubscription){
+          throw new Error('That wallet has no active subscription. Free listening below is unaffected.');
+        }
+        return liveSession || mintSession();
+      })
+      .then(function(){ liveBtn('Leave radio', false); startLive(); })
+      .catch(function(e){
+        liveBtn(liveAddr?'Try again':'Connect wallet', false);
+        liveSay(e && e.message ? e.message : 'Could not join the live stream.');
+      });
+  }
+
+  // Only offer it where a wallet actually exists; everyone else sees nothing
+  // and loses nothing.
+  if(window.ethereum){
+    el('live').hidden=false;
+    el('live-btn').addEventListener('click', joinLive);
+  }
 
   fetch('/api/v1/music',{headers:{'accept':'application/json'}})
     .then(function(r){ if(!r.ok) throw new Error('status '+r.status); return r.json(); })
