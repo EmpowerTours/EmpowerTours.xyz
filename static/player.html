@@ -263,6 +263,48 @@
   }
   function esc(t){var d=document.createElement('div');d.textContent=t==null?'':t;return d.innerHTML;}
 
+  // Hand the track to the OS so car head units (CarPlay / Android Auto /
+  // Bluetooth AVRCP) and lock screens show the real title + artist instead of
+  // "Unknown artist", and so the steering-wheel buttons work.
+  var MS = ('mediaSession' in navigator) ? navigator.mediaSession : null;
+  function artworkFor(url){
+    if(!url) return [];
+    return ['96x96','128x128','256x256','384x384','512x512'].map(function(sz){
+      return { src:url, sizes:sz };
+    });
+  }
+  function updateMediaSession(s){
+    if(!MS || !window.MediaMetadata) return;
+    try{
+      MS.metadata = new MediaMetadata({
+        title: s.name || 'Untitled',
+        artist: artistLabel(s),
+        album: 'EmpowerTours Radio',
+        artwork: artworkFor(s.imageUrl)
+      });
+    }catch(e){}
+  }
+  function setMediaPosition(){
+    if(!MS || !MS.setPositionState) return;
+    if(!audio.duration || !isFinite(audio.duration)) return;
+    try{
+      MS.setPositionState({
+        duration: audio.duration,
+        playbackRate: audio.playbackRate || 1,
+        position: Math.min(audio.currentTime, audio.duration)
+      });
+    }catch(e){}
+  }
+  if(MS){
+    [['play',function(){ audio.play().catch(function(){}); }],
+     ['pause',function(){ audio.pause(); }],
+     ['stop',function(){ audio.pause(); }],
+     ['nexttrack',randomNext],
+     ['previoustrack',goPrev]].forEach(function(h){
+      try{ MS.setActionHandler(h[0], h[1]); }catch(e){}
+    });
+  }
+
   function loadInto(i, autoplay){
     if(i<0||i>=songs.length) return;
     idx=i; var s=songs[i];
@@ -280,6 +322,7 @@
       t.classList.toggle('active', +t.dataset.i===i);
     });
     audio.src=s.audioUrl;
+    updateMediaSession(s);
     el('bar').classList.add('show');
     if(autoplay) audio.play().catch(function(){});
   }
@@ -301,12 +344,14 @@
   el('shuffle-btn').addEventListener('click',randomNext);
   el('next').addEventListener('click',randomNext);
   el('prev').addEventListener('click',goPrev);
-  audio.addEventListener('play',function(){setPlaying(true)});
-  audio.addEventListener('pause',function(){setPlaying(false)});
+  audio.addEventListener('play',function(){setPlaying(true); if(MS) MS.playbackState='playing'; setMediaPosition();});
+  audio.addEventListener('pause',function(){setPlaying(false); if(MS) MS.playbackState='paused';});
   audio.addEventListener('ended',randomNext);
+  audio.addEventListener('loadedmetadata',setMediaPosition);
   audio.addEventListener('timeupdate',function(){
     var pct=audio.duration?(audio.currentTime/audio.duration*100):0;
     el('fill').style.width=pct+'%';
+    setMediaPosition();
   });
 
   function show(id){['loading','empty','error'].forEach(function(s){el(s).hidden=(s!==id)});}
