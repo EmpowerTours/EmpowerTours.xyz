@@ -150,6 +150,10 @@ func main() {
 	r.Get("/terms", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, filepath.Join(staticDir, "terms.html"))
 	})
+	// Support URL — required by App Store Connect and Google Play listings.
+	r.Get("/support", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, filepath.Join(staticDir, "support.html"))
+	})
 	r.Get("/admin", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, filepath.Join(staticDir, "admin.html"))
 	})
