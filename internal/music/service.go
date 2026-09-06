@@ -10,10 +10,8 @@
 package music
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/url"
 	"sort"
@@ -35,9 +33,9 @@ type Song struct {
 
 // Service fetches and caches the catalog.
 type Service struct {
-	endpoint string
-	client   *http.Client
-	ttl      time.Duration
+	src    *chainSource
+	client *http.Client
+	ttl    time.Duration
 
 	mu       sync.Mutex
 	cache    []Song
@@ -54,47 +52,27 @@ type nameEntry struct {
 	at   time.Time
 }
 
-// NewService creates a catalog service for the given Envio GraphQL endpoint.
-func NewService(endpoint string) *Service {
-	return &Service{
-		endpoint: endpoint,
-		client:   &http.Client{Timeout: 20 * time.Second},
-		ttl:      30 * time.Second,
-		names:    make(map[string]nameEntry),
-		nameTTL:  6 * time.Hour,
+// NewService creates a catalog service reading the v3 LicenseRegistry directly.
+//
+// It used to take an Envio GraphQL endpoint. That indexer was deleted and now
+// answers 404, and because Songs() falls back to the last good cache the API
+// went on serving a frozen catalog rather than failing — see chain.go.
+//
+// An unusable registry address is returned as an error rather than swallowed:
+// a catalog service that cannot read the catalog should refuse to start, not
+// come up and serve nothing.
+func NewService(rpcURL, registry, gateway string) (*Service, error) {
+	src, err := newChainSource(rpcURL, registry, gateway)
+	if err != nil {
+		return nil, err
 	}
-}
-
-// graphQL request/response shapes for the MusicNFT entity.
-const catalogQuery = `query GetMusicNFTs {
-  MusicNFT(where: {isBurned: {_eq: false}}, limit: 200) {
-    tokenId
-    name
-    artist
-    artistFid
-    fullAudioUrl
-    imageUrl
-  }
-}`
-
-type gqlRequest struct {
-	Query string `json:"query"`
-}
-
-type gqlResponse struct {
-	Data struct {
-		MusicNFT []struct {
-			TokenID      string `json:"tokenId"`
-			Name         string `json:"name"`
-			Artist       string `json:"artist"`
-			ArtistFid    string `json:"artistFid"`
-			FullAudioURL string `json:"fullAudioUrl"`
-			ImageURL     string `json:"imageUrl"`
-		} `json:"MusicNFT"`
-	} `json:"data"`
-	Errors []struct {
-		Message string `json:"message"`
-	} `json:"errors"`
+	return &Service{
+		src:     src,
+		client:  &http.Client{Timeout: 20 * time.Second},
+		ttl:     30 * time.Second,
+		names:   make(map[string]nameEntry),
+		nameTTL: 6 * time.Hour,
+	}, nil
 }
 
 // Songs returns the catalog, using a short-lived cache. On a fetch error it
@@ -126,8 +104,9 @@ func (s *Service) Songs(ctx context.Context) ([]Song, error) {
 	return songs, nil
 }
 
-// Endpoint returns the Envio GraphQL endpoint this service queries.
-func (s *Service) Endpoint() string { return s.endpoint }
+// Endpoint describes where the catalog comes from. Named for the health
+// handler that reports it; it is no longer a URL you can query by hand.
+func (s *Service) Endpoint() string { return s.src.describe() }
 
 // Song returns a single track by tokenId.
 func (s *Service) Song(ctx context.Context, tokenID string) (*Song, bool, error) {
@@ -144,45 +123,9 @@ func (s *Service) Song(ctx context.Context, tokenID string) (*Song, bool, error)
 }
 
 func (s *Service) fetch(ctx context.Context) ([]Song, error) {
-	body, _ := json.Marshal(gqlRequest{Query: catalogQuery})
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.endpoint, bytes.NewReader(body))
+	songs, err := s.src.songs(ctx)
 	if err != nil {
 		return nil, err
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := s.client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("indexer request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("indexer returned status %d", resp.StatusCode)
-	}
-
-	var parsed gqlResponse
-	if err := json.NewDecoder(resp.Body).Decode(&parsed); err != nil {
-		return nil, fmt.Errorf("decode indexer response: %w", err)
-	}
-	if len(parsed.Errors) > 0 {
-		return nil, fmt.Errorf("indexer error: %s", parsed.Errors[0].Message)
-	}
-
-	songs := make([]Song, 0, len(parsed.Data.MusicNFT))
-	for _, m := range parsed.Data.MusicNFT {
-		audio := m.FullAudioURL
-		if audio == "" {
-			continue // no playable audio -> skip
-		}
-		songs = append(songs, Song{
-			TokenID:   m.TokenID,
-			Name:      m.Name,
-			Artist:    m.Artist,
-			ArtistFid: m.ArtistFid,
-			AudioURL:  audio,
-			ImageURL:  m.ImageURL,
-		})
 	}
 
 	// Newest first (tokenId descending, numeric when possible).

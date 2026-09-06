@@ -74,11 +74,19 @@ func (h *MusicHandler) Player(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, filepath.Join(h.StaticDir, "player.html"))
 }
 
-// IndexerHealth cross-checks that this API and the Farcaster mini app are
-// reading the SAME Envio indexer. If the indexer is redeployed, its URL rotates;
-// if only one side's env var is updated they "drift" and the API silently shows
-// a stale or empty catalog. This endpoint makes that visible (and returns 503 on
-// confirmed drift so an uptime monitor can page).
+// IndexerHealth cross-checks this API's catalog against the Farcaster mini
+// app's.
+//
+// It was built to compare Envio endpoints, because a redeployed indexer rotated
+// its URL and updating only one side left the API serving a stale catalog. Both
+// sides now read the chain instead, so there is no endpoint left to drift — and
+// the endpoint comparison below is kept only because a mini app that starts
+// reporting one again should still be noticed.
+//
+// The COUNT comparison is the part that earned its keep: when the indexer was
+// deleted and this API froze at five tracks against a ten-track chain, this was
+// the only thing anywhere that said so, as catalog_count_differs. It was not
+// wired to anything that pages. It should be.
 // GET /api/v1/health/indexer
 func (h *MusicHandler) IndexerHealth(w http.ResponseWriter, r *http.Request) {
 	apiEndpoint := h.Svc.Endpoint()
@@ -108,16 +116,30 @@ func (h *MusicHandler) IndexerHealth(w http.ResponseWriter, r *http.Request) {
 
 	issues := []string{}
 	critical := false
+
+	// Checked first and OUTSIDE the miniReached branch: an empty catalog is this
+	// endpoint's whole reason to exist, and it is true whether or not the mini
+	// app answers. Previously it could only be reported when the mini app was
+	// reachable AND had songs, so the API serving nothing while the mini app was
+	// down read as merely "miniapp_unreachable".
+	if apiCount == 0 {
+		issues = append(issues, "api_catalog_empty")
+		critical = true
+	}
+
 	if miniReached {
+		// Both sides read the chain now, so the mini app reports no endpoint and
+		// this cannot fire. Left in place deliberately: if either side is ever
+		// put back behind an indexer, a one-sided change must not be silent.
 		if mini.EnvioEndpoint != "" && mini.EnvioEndpoint != apiEndpoint {
 			issues = append(issues, "indexer_endpoint_mismatch")
 			critical = true
 		}
-		if apiCount == 0 && mini.SongsCount > 0 {
-			issues = append(issues, "api_catalog_empty")
-			critical = true
-		} else if apiCount != mini.SongsCount {
-			// Usually just indexing lag or the 30s cache — a warning, not a page.
+		if apiCount != mini.SongsCount {
+			// Two chain readers disagreeing is not indexing lag any more — it is
+			// a 30s cache boundary at worst, and a real divergence at best. Still
+			// a warning rather than a page, because the mini app dedupes
+			// differently and an off-by-one here is expected.
 			issues = append(issues, "catalog_count_differs")
 		}
 	} else {

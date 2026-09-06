@@ -110,14 +110,23 @@ func main() {
 	staticDir := resolveStaticDir()
 	appDir := filepath.Join(staticDir, "app")
 
-	// Music streaming (public, no auth): friendly web player + catalog API
-	// sourced from the Farcaster miniapp's Envio Music NFT indexer.
+	// Music streaming (public, no auth): friendly web player + catalog API,
+	// read from the v3 LicenseRegistry on Monad. This used to come from an Envio
+	// subgraph; that indexer was deleted and the API silently served a frozen
+	// five-track catalog against a ten-track chain until someone read the
+	// drift check. See internal/music/chain.go.
+	musicSvc, err := music.NewService(cfg.MonadRPCURL, cfg.LicenseRegistryAddress, cfg.PinataGateway)
+	if err != nil {
+		// A catalog service that cannot read the catalog should not boot into a
+		// state where every request returns an empty player.
+		log.Fatalf("music catalog: %v", err)
+	}
 	musicHandler := &handlers.MusicHandler{
-		Svc:        music.NewService(cfg.EnvioEndpoint),
+		Svc:        musicSvc,
 		StaticDir:  staticDir,
 		MiniappURL: cfg.MiniappURL,
 	}
-	log.Printf("Music streaming enabled (indexer: %s)", cfg.EnvioEndpoint)
+	log.Printf("Music streaming enabled (registry %s via %s)", cfg.LicenseRegistryAddress, cfg.MonadRPCURL)
 	r.Get("/", musicHandler.Player)
 	r.Get("/listen", musicHandler.Player)
 	r.Get("/api/v1/music", musicHandler.ListCatalog)
