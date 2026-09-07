@@ -26,9 +26,17 @@ type Song struct {
 	Name       string `json:"name"`
 	Artist     string `json:"artist"`     // on-chain artist wallet address
 	ArtistFid  string `json:"artistFid"`  // Farcaster ID of the artist
-	ArtistName string `json:"artistName"` // resolved Farcaster display name ("" if unknown)
-	AudioURL   string `json:"audioUrl"`   // resolved IPFS gateway URL (streamable)
-	ImageURL   string `json:"imageUrl"`   // cover art URL
+	ArtistName string `json:"artistName"` // resolved display name ("" if unknown)
+	// Where ArtistName came from: "farcaster", "profile", or "" when unresolved.
+	//
+	// These are NOT equivalent claims and a client must not present them as one.
+	// A Farcaster handle is tied to an account; a ProfileRegistry name is open,
+	// first-come registration and the contract warns homoglyphs are registerable.
+	// So a "profile" name should be shown WITH the address, a "farcaster" one need
+	// not be.
+	ArtistNameSource string `json:"artistNameSource,omitempty"`
+	AudioURL         string `json:"audioUrl"` // resolved IPFS gateway URL (streamable)
+	ImageURL         string `json:"imageUrl"` // cover art URL
 }
 
 // Service fetches and caches the catalog.
@@ -138,10 +146,25 @@ func (s *Service) fetch(ctx context.Context) ([]Song, error) {
 		return songs[i].TokenID > songs[j].TokenID
 	})
 
-	// Enrich with the artist's Farcaster display name (best effort, cached).
+	// Name the artist, in descending strength of claim:
+	//
+	//   1. Farcaster, by the artistFid the master carries.
+	//   2. ProfileRegistry, by the artist's address.
+	//   3. nothing — the client shortens the address.
+	//
+	// Tier 2 was missing entirely, which is why a track minted from a wallet with
+	// no Farcaster account rendered as a bare hex address in the API, the web
+	// player and the mobile app alike. The mini app has had this order for a
+	// while; the API only ever asked Farcaster.
 	for i := range songs {
 		if name := s.resolveName(ctx, songs[i].ArtistFid); name != "" {
 			songs[i].ArtistName = name
+			songs[i].ArtistNameSource = "farcaster"
+			continue
+		}
+		if name := s.src.displayName(ctx, songs[i].Artist); name != "" {
+			songs[i].ArtistName = name
+			songs[i].ArtistNameSource = "profile"
 		}
 	}
 

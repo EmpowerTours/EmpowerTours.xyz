@@ -33,6 +33,7 @@ import (
 	"log"
 	"math/big"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -77,15 +78,26 @@ type trackMetadata struct {
 }
 
 type chainSource struct {
-	rpcURL   string
-	registry common.Address
-	gateway  string
-	abi      abi.ABI
-	client   *http.Client
+	rpcURL     string
+	registry   common.Address
+	profiles   common.Address
+	gateway    string
+	abi        abi.ABI
+	profileAbi abi.ABI
+	client     *http.Client
 
 	metaMu sync.Mutex
 	meta   map[string]trackMetadata // tokenURI -> document, immutable once resolved
 }
+
+// The ProfileRegistry's one function this needs. A name registered here is NOT a
+// Farcaster handle: registration is open and first-come, and the contract's own
+// comment warns that homoglyphs are registerable. So the source of a name is
+// reported alongside it (Song.ArtistNameSource) and a client showing a
+// "profile" name should show the address too.
+const profileABIJSON = `[
+ {"name":"displayNameOf","type":"function","stateMutability":"view","inputs":[{"type":"address"}],"outputs":[{"type":"string"}]}
+]`
 
 func newChainSource(rpcURL, registry, gateway string) (*chainSource, error) {
 	parsed, err := abi.JSON(strings.NewReader(registryABIJSON))
@@ -98,13 +110,24 @@ func newChainSource(rpcURL, registry, gateway string) (*chainSource, error) {
 	if !strings.HasSuffix(gateway, "/") {
 		gateway += "/"
 	}
+	profiles := os.Getenv("PROFILE_REGISTRY_ADDRESS")
+	if profiles == "" {
+		profiles = "0xf4C27308f2183E7Cb07c32FAF449a259831E16EC"
+	}
+	profileAbi, err := abi.JSON(strings.NewReader(profileABIJSON))
+	if err != nil {
+		return nil, fmt.Errorf("parse profile abi: %w", err)
+	}
+
 	return &chainSource{
-		rpcURL:   rpcURL,
-		registry: common.HexToAddress(registry),
-		gateway:  gateway,
-		abi:      parsed,
-		client:   &http.Client{Timeout: 20 * time.Second},
-		meta:     make(map[string]trackMetadata),
+		rpcURL:     rpcURL,
+		profiles:   common.HexToAddress(profiles),
+		profileAbi: profileAbi,
+		registry:   common.HexToAddress(registry),
+		gateway:    gateway,
+		abi:        parsed,
+		client:     &http.Client{Timeout: 20 * time.Second},
+		meta:       make(map[string]trackMetadata),
 	}, nil
 }
 
@@ -129,7 +152,13 @@ type rpcResp struct {
 
 // call performs one eth_call against the registry and unpacks the result.
 func (c *chainSource) call(ctx context.Context, method string, args ...interface{}) ([]interface{}, error) {
-	data, err := c.abi.Pack(method, args...)
+	return c.callAt(ctx, c.registry, c.abi, method, args...)
+}
+
+// callAt is the same eth_call against an arbitrary contract, so the catalog and
+// the profile lookup share one transport rather than growing a second copy.
+func (c *chainSource) callAt(ctx context.Context, to common.Address, a abi.ABI, method string, args ...interface{}) ([]interface{}, error) {
+	data, err := a.Pack(method, args...)
 	if err != nil {
 		return nil, fmt.Errorf("pack %s: %w", method, err)
 	}
@@ -137,7 +166,7 @@ func (c *chainSource) call(ctx context.Context, method string, args ...interface
 	body, err := json.Marshal(rpcReq{
 		JSONRPC: "2.0", ID: 1, Method: "eth_call",
 		Params: []interface{}{
-			map[string]string{"to": c.registry.Hex(), "data": "0x" + hex.EncodeToString(data)},
+			map[string]string{"to": to.Hex(), "data": "0x" + hex.EncodeToString(data)},
 			"latest",
 		},
 	})
@@ -178,7 +207,7 @@ func (c *chainSource) call(ctx context.Context, method string, args ...interface
 		return nil, fmt.Errorf("call %s returned no data (reverted or wrong address)", method)
 	}
 
-	vals, err := c.abi.Unpack(method, raw)
+	vals, err := a.Unpack(method, raw)
 	if err != nil {
 		return nil, fmt.Errorf("unpack %s: %w", method, err)
 	}
@@ -352,6 +381,23 @@ func (c *chainSource) fetchMetadata(ctx context.Context, uri string) (trackMetad
 		return trackMetadata{}, false
 	}
 	return md, true
+}
+
+// displayName returns the name this address registered on the ProfileRegistry,
+// or "" if it has none. This is the tier that was missing: an artist who minted
+// from a wallet with no Farcaster account had no name anywhere, so every client
+// fell through to a bare hex address — which is what "Ganado" showed instead of
+// "Earvin Gallardo".
+func (c *chainSource) displayName(ctx context.Context, addr string) string {
+	if !common.IsHexAddress(addr) {
+		return ""
+	}
+	vals, err := c.callAt(ctx, c.profiles, c.profileAbi, "displayNameOf", common.HexToAddress(addr))
+	if err != nil || len(vals) == 0 {
+		return ""
+	}
+	name, _ := vals[0].(string)
+	return strings.TrimSpace(name)
 }
 
 func (c *chainSource) resolveIPFS(u string) string {
