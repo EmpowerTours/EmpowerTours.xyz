@@ -63,8 +63,8 @@ const registryABIJSON = `[
    {"name":"referrer","type":"address"},{"name":"royaltyShareBps","type":"uint96"},{"name":"royaltyShareSink","type":"address"}]}
 ]`
 
-// trackMetadata is the ERC-721 document behind a tokenURI. Only the three
-// fields a listener sees are read; anything else in the document is ignored.
+// trackMetadata is the ERC-721 document behind a tokenURI. Only the fields a
+// listener sees are read; anything else in the document is ignored.
 const (
 	metadataAttempts   = 3
 	metadataRetryDelay = 400 * time.Millisecond
@@ -75,6 +75,7 @@ type trackMetadata struct {
 	Image        string `json:"image"`
 	AnimationURL string `json:"animation_url"`
 	AudioURL     string `json:"audio_url"`
+	ExternalURL  string `json:"external_url"`
 }
 
 type chainSource struct {
@@ -271,9 +272,15 @@ func (c *chainSource) songs(ctx context.Context) ([]Song, error) {
 			log.Printf("[music] master %d: metadata unresolved at %s - a superseded copy may surface in its place", i, uri)
 			continue
 		}
-		audio := md.AnimationURL
+		// external_url is the full recording; animation_url is the 3-second
+		// preview that marketplaces and cast embeds show. Preferring the
+		// preview shipped every track to the apps as a 3-second clip.
+		audio := md.ExternalURL
 		if audio == "" {
 			audio = md.AudioURL
+		}
+		if audio == "" {
+			audio = md.AnimationURL
 		}
 		if audio == "" {
 			// Nothing to play. Listing it would put a dead row in the player.

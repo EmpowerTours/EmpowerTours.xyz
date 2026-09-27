@@ -2,6 +2,9 @@ package music
 
 import (
 	"context"
+	"net/http"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -33,6 +36,26 @@ func TestChainSourceLive(t *testing.T) {
 	if len(songs) == 0 {
 		t.Fatal("catalog is empty - the whole point of this change was that it should not be")
 	}
+	// Every track must be the full recording, not the 3-second preview. The
+	// previews are 576,044-byte WAVs; the shortest full track is ~5 MB. This
+	// is the check that would have caught the catalog serving clips.
+	const minFullTrackBytes = 1 << 20
+	for _, s := range songs {
+		req, _ := http.NewRequestWithContext(ctx, http.MethodGet, s.AudioURL, nil)
+		req.Header.Set("Range", "bytes=0-0")
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Errorf("#%s %q: fetch audio: %v", s.TokenID, s.Name, err)
+			continue
+		}
+		resp.Body.Close()
+		cr := resp.Header.Get("Content-Range") // "bytes 0-0/<total>"
+		total, _ := strconv.ParseInt(cr[strings.LastIndex(cr, "/")+1:], 10, 64)
+		if total < minFullTrackBytes {
+			t.Errorf("#%s %q: audio is %d bytes (Content-Range %q) - a preview clip, not the full track", s.TokenID, s.Name, total, cr)
+		}
+	}
+
 	// The republished masters are the newest ids. If a superseded copy shows up
 	// instead, dedupe picked the wrong winner or its metadata failed to resolve.
 	for _, s := range songs {
