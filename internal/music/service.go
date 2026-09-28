@@ -12,6 +12,8 @@ package music
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"log"
 	"net/http"
 	"net/url"
 	"sort"
@@ -96,20 +98,53 @@ func (s *Service) Songs(ctx context.Context) ([]Song, error) {
 	s.mu.Unlock()
 
 	songs, err := s.fetch(ctx)
-	if err != nil {
-		s.mu.Lock()
-		defer s.mu.Unlock()
-		if s.cache != nil {
-			return s.cache, nil // serve stale rather than fail
-		}
-		return nil, err
-	}
 
 	s.mu.Lock()
-	s.cache = songs
-	s.fetchedA = time.Now()
-	s.mu.Unlock()
-	return songs, nil
+	defer s.mu.Unlock()
+	serve, keep := choose(s.cache, s.fetchedA, time.Now(), songs, err)
+	if err != nil {
+		log.Printf("[music] %v - serving %d tracks (cached=%v)", err, len(serve), keep)
+	}
+	if !keep && serve != nil {
+		s.cache = serve
+		s.fetchedA = time.Now()
+	}
+	if serve == nil {
+		return nil, err
+	}
+	return serve, nil
+}
+
+// maxStale bounds how long a complete catalog is preferred over a partial
+// scan. Without a bound, one master whose metadata is gone for good would
+// freeze the catalog at its last complete state forever.
+const maxStale = 10 * time.Minute
+
+// choose decides what a request is served after a scan. It returns the list
+// to serve and whether that list is the existing cache (keep=true) rather
+// than something new to cache.
+//
+//   - complete scan: serve and cache it.
+//   - partial scan, cache younger than maxStale: serve the cache; the next
+//     request rescans because fetchedAt is not refreshed.
+//   - partial scan, no usable cache: serve and cache the partial list, since
+//     some tracks beat an error screen.
+//   - failed scan: serve any cache, however old; else nothing.
+func choose(cache []Song, fetchedAt, now time.Time, fresh []Song, err error) (serve []Song, keep bool) {
+	if err == nil {
+		return fresh, false
+	}
+	var inc *IncompleteError
+	if errors.As(err, &inc) {
+		if cache != nil && now.Sub(fetchedAt) < maxStale {
+			return cache, true
+		}
+		return fresh, false
+	}
+	if cache != nil {
+		return cache, true
+	}
+	return nil, false
 }
 
 // Endpoint describes where the catalog comes from. Named for the health
@@ -132,7 +167,8 @@ func (s *Service) Song(ctx context.Context, tokenID string) (*Song, bool, error)
 
 func (s *Service) fetch(ctx context.Context) ([]Song, error) {
 	songs, err := s.src.songs(ctx)
-	if err != nil {
+	var inc *IncompleteError
+	if err != nil && !errors.As(err, &inc) {
 		return nil, err
 	}
 
@@ -168,7 +204,7 @@ func (s *Service) fetch(ctx context.Context) ([]Song, error) {
 		}
 	}
 
-	return songs, nil
+	return songs, err
 }
 
 // resolveName maps a Farcaster fid to a friendly display name, cached for

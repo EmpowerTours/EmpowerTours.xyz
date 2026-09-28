@@ -229,24 +229,32 @@ func (c *chainSource) songs(ctx context.Context) ([]Song, error) {
 
 	songs := make([]Song, 0, total.Int64())
 	seen := make(map[string]bool, total.Int64())
+	unread := 0 // masters skipped because a read failed, not because they are unplayable
 	for i := total.Int64(); i >= 1; i-- {
 		id := big.NewInt(i)
 
 		// A suspended or purged master is not playable. Checked before the
 		// metadata fetch so a takedown costs no gateway round trip.
-		if b, err := c.call(ctx, "masterSuspended", id); err == nil {
-			if v, _ := b[0].(bool); v {
-				continue
-			}
+		b, err := c.call(ctx, "masterSuspended", id)
+		if err != nil || len(b) == 0 {
+			unread++
+			continue
 		}
-		if b, err := c.call(ctx, "masterPurged", id); err == nil {
-			if v, _ := b[0].(bool); v {
-				continue
-			}
+		if v, _ := b[0].(bool); v {
+			continue
+		}
+		b, err = c.call(ctx, "masterPurged", id)
+		if err != nil || len(b) == 0 {
+			unread++
+			continue
+		}
+		if v, _ := b[0].(bool); v {
+			continue
 		}
 
 		m, err := c.call(ctx, "getMaster", id)
 		if err != nil || len(m) < 2 {
+			unread++
 			continue // one unreadable master must not empty the catalog
 		}
 		artist, _ := m[0].(common.Address)
@@ -254,6 +262,7 @@ func (c *chainSource) songs(ctx context.Context) ([]Song, error) {
 
 		u, err := c.call(ctx, "tokenURI", id)
 		if err != nil || len(u) == 0 {
+			unread++
 			continue
 		}
 		uri, _ := u[0].(string)
@@ -270,6 +279,7 @@ func (c *chainSource) songs(ctx context.Context) ([]Song, error) {
 			// swallowed, because the symptom (right song, wrong artist) looks
 			// nothing like the cause.
 			log.Printf("[music] master %d: metadata unresolved at %s - a superseded copy may surface in its place", i, uri)
+			unread++
 			continue
 		}
 		// external_url is the full recording; animation_url is the 3-second
@@ -328,7 +338,20 @@ func (c *chainSource) songs(ctx context.Context) ([]Song, error) {
 			ImageURL:  c.resolveIPFS(md.Image),
 		})
 	}
+	if unread > 0 {
+		return songs, &IncompleteError{Unread: unread}
+	}
 	return songs, nil
+}
+
+// IncompleteError reports a scan that finished but skipped masters it could
+// not read (RPC or gateway failure). The songs returned alongside it are real
+// but partial. Treating that as success is how the app came up with three of
+// seven tracks: the short list was cached and served like a full one.
+type IncompleteError struct{ Unread int }
+
+func (e *IncompleteError) Error() string {
+	return fmt.Sprintf("catalog scan incomplete: %d master(s) unreadable", e.Unread)
 }
 
 // metadata resolves and permanently caches the document behind a tokenURI.
