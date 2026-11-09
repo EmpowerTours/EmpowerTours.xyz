@@ -158,11 +158,56 @@ func (c *chainSource) call(ctx context.Context, method string, args ...interface
 
 // callAt is the same eth_call against an arbitrary contract, so the catalog and
 // the profile lookup share one transport rather than growing a second copy.
+//
+// Transient failures are retried with backoff. The public RPC answers a burst
+// with HTTP 429, and Railway's egress IP is shared, so a scan of ~44 sequential
+// calls used to lose most of them: on 2026-11-09 the API served "no tracks yet"
+// while every master was readable from anywhere else. A revert or a malformed
+// answer is not transient and fails at once.
 func (c *chainSource) callAt(ctx context.Context, to common.Address, a abi.ABI, method string, args ...interface{}) ([]interface{}, error) {
 	data, err := a.Pack(method, args...)
 	if err != nil {
 		return nil, fmt.Errorf("pack %s: %w", method, err)
 	}
+
+	var lastErr error
+	for attempt := 0; ; attempt++ {
+		vals, retry, err := c.callOnce(ctx, to, a, method, data)
+		if err == nil {
+			return vals, nil
+		}
+		lastErr = err
+		if !retry || attempt >= len(rpcRetryDelays) {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			return nil, fmt.Errorf("%w (gave up: %v)", lastErr, ctx.Err())
+		case <-time.After(rpcRetryDelays[attempt]):
+		}
+	}
+	return nil, lastErr
+}
+
+// rpcRetryDelays is the wait before each retry of a transient RPC failure.
+// Worst case adds ~2s to one call; a scan is cached, so listeners never wait on
+// it more than once per TTL.
+var rpcRetryDelays = []time.Duration{250 * time.Millisecond, 600 * time.Millisecond, 1200 * time.Millisecond}
+
+// retryableRPCError reports whether a JSON-RPC error object is a rate limit or
+// an overloaded node rather than a real answer (a revert, a bad argument).
+func retryableRPCError(code int, msg string) bool {
+	switch code {
+	case 429, -32005, -32007: // too many requests / limit exceeded
+		return true
+	}
+	m := strings.ToLower(msg)
+	return strings.Contains(m, "rate limit") || strings.Contains(m, "too many") || strings.Contains(m, "limit exceeded")
+}
+
+// callOnce is a single eth_call. retry reports whether the failure is
+// transient and worth another attempt.
+func (c *chainSource) callOnce(ctx context.Context, to common.Address, a abi.ABI, method string, data []byte) (vals []interface{}, retry bool, err error) {
 
 	body, err := json.Marshal(rpcReq{
 		JSONRPC: "2.0", ID: 1, Method: "eth_call",
@@ -172,47 +217,49 @@ func (c *chainSource) callAt(ctx context.Context, to common.Address, a abi.ABI, 
 		},
 	})
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.rpcURL, bytes.NewReader(body))
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := c.client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("call %s: %w", method, err)
+		return nil, true, fmt.Errorf("call %s: %w", method, err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("call %s: rpc status %d", method, resp.StatusCode)
+		retry := resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500
+		return nil, retry, fmt.Errorf("call %s: rpc status %d", method, resp.StatusCode)
 	}
 
 	var parsed rpcResp
 	if err := json.NewDecoder(resp.Body).Decode(&parsed); err != nil {
-		return nil, fmt.Errorf("decode %s: %w", method, err)
+		return nil, true, fmt.Errorf("decode %s: %w", method, err)
 	}
 	if parsed.Error != nil {
-		return nil, fmt.Errorf("call %s: rpc error %d: %s", method, parsed.Error.Code, parsed.Error.Message)
+		return nil, retryableRPCError(parsed.Error.Code, parsed.Error.Message),
+			fmt.Errorf("call %s: rpc error %d: %s", method, parsed.Error.Code, parsed.Error.Message)
 	}
 
 	raw, err := hex.DecodeString(strings.TrimPrefix(parsed.Result, "0x"))
 	if err != nil {
-		return nil, fmt.Errorf("decode %s result: %w", method, err)
+		return nil, false, fmt.Errorf("decode %s result: %w", method, err)
 	}
 	// A reverted or non-existent call returns "0x". Unpacking that yields a
 	// confusing error, so name the real problem.
 	if len(raw) == 0 {
-		return nil, fmt.Errorf("call %s returned no data (reverted or wrong address)", method)
+		return nil, false, fmt.Errorf("call %s returned no data (reverted or wrong address)", method)
 	}
 
-	vals, err := a.Unpack(method, raw)
+	vals, err = a.Unpack(method, raw)
 	if err != nil {
-		return nil, fmt.Errorf("unpack %s: %w", method, err)
+		return nil, false, fmt.Errorf("unpack %s: %w", method, err)
 	}
-	return vals, nil
+	return vals, false, nil
 }
 
 // songs reads the whole catalog. Newest first, matching the order the indexer
@@ -230,6 +277,13 @@ func (c *chainSource) songs(ctx context.Context) ([]Song, error) {
 	songs := make([]Song, 0, total.Int64())
 	seen := make(map[string]bool, total.Int64())
 	unread := 0 // masters skipped because a read failed, not because they are unplayable
+	// skip records a master lost to a failed read. The error is logged because
+	// a count alone ("15 master(s) unreadable") cannot tell a rate limit from a
+	// wrong address from a dead gateway.
+	skip := func(id int64, what string, err error) {
+		unread++
+		log.Printf("[music] master %d: %s unreadable: %v", id, what, err)
+	}
 	for i := total.Int64(); i >= 1; i-- {
 		id := big.NewInt(i)
 
@@ -237,7 +291,7 @@ func (c *chainSource) songs(ctx context.Context) ([]Song, error) {
 		// metadata fetch so a takedown costs no gateway round trip.
 		b, err := c.call(ctx, "masterSuspended", id)
 		if err != nil || len(b) == 0 {
-			unread++
+			skip(i, "masterSuspended", err)
 			continue
 		}
 		if v, _ := b[0].(bool); v {
@@ -245,7 +299,7 @@ func (c *chainSource) songs(ctx context.Context) ([]Song, error) {
 		}
 		b, err = c.call(ctx, "masterPurged", id)
 		if err != nil || len(b) == 0 {
-			unread++
+			skip(i, "masterPurged", err)
 			continue
 		}
 		if v, _ := b[0].(bool); v {
@@ -254,7 +308,7 @@ func (c *chainSource) songs(ctx context.Context) ([]Song, error) {
 
 		m, err := c.call(ctx, "getMaster", id)
 		if err != nil || len(m) < 2 {
-			unread++
+			skip(i, "getMaster", err)
 			continue // one unreadable master must not empty the catalog
 		}
 		artist, _ := m[0].(common.Address)
@@ -262,7 +316,7 @@ func (c *chainSource) songs(ctx context.Context) ([]Song, error) {
 
 		u, err := c.call(ctx, "tokenURI", id)
 		if err != nil || len(u) == 0 {
-			unread++
+			skip(i, "tokenURI", err)
 			continue
 		}
 		uri, _ := u[0].(string)

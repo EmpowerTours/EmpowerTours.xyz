@@ -3,6 +3,7 @@ package music
 import (
 	"context"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -14,8 +15,13 @@ func TestChainSourceLive(t *testing.T) {
 	if testing.Short() {
 		t.Skip("network test")
 	}
+	// The RPC production uses (MONAD_RPC_URL on Railway since 2026-11-09).
+	rpc := os.Getenv("MONAD_RPC_URL")
+	if rpc == "" {
+		rpc = "https://rpc2.monad.xyz"
+	}
 	src, err := newChainSource(
-		"https://rpc.monad.xyz",
+		rpc,
 		"0x42EbcD44C2295702130f0A641633c691bA5f9480",
 		"https://harlequin-used-hare-224.mypinata.cloud/ipfs/",
 	)

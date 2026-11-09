@@ -13,6 +13,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"net/url"
@@ -47,9 +48,8 @@ type Service struct {
 	client *http.Client
 	ttl    time.Duration
 
-	mu       sync.Mutex
-	cache    []Song
-	fetchedA time.Time
+	mu    sync.Mutex
+	cache snapshot
 
 	// artist fid -> display name, cached (names rarely change).
 	nameMu  sync.Mutex
@@ -85,13 +85,26 @@ func NewService(rpcURL, registry, gateway string) (*Service, error) {
 	}, nil
 }
 
+// snapshot is a cached catalog and how it was obtained. complete is what makes
+// it trustworthy: a partial scan is real data but not the catalog.
+type snapshot struct {
+	songs    []Song
+	at       time.Time
+	complete bool
+}
+
+// ErrCatalogUnavailable is returned when no scan has produced a usable catalog.
+// The handler turns it into a 502, which the apps show as "couldn't reach the
+// studio" - true - instead of "no tracks yet", which was false.
+var ErrCatalogUnavailable = errors.New("catalog unavailable: no complete scan and the partial one found nothing")
+
 // Songs returns the catalog, using a short-lived cache. On a fetch error it
 // falls back to the last good cache (if any) so the player keeps working
-// through transient indexer hiccups.
+// through transient RPC hiccups.
 func (s *Service) Songs(ctx context.Context) ([]Song, error) {
 	s.mu.Lock()
-	if s.cache != nil && time.Since(s.fetchedA) < s.ttl {
-		cached := s.cache
+	if s.cache.songs != nil && time.Since(s.cache.at) < s.ttl {
+		cached := s.cache.songs
 		s.mu.Unlock()
 		return cached, nil
 	}
@@ -101,16 +114,13 @@ func (s *Service) Songs(ctx context.Context) ([]Song, error) {
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	serve, keep := choose(s.cache, s.fetchedA, time.Now(), songs, err)
+	serve, next, serveErr := choose(s.cache, time.Now(), songs, err)
 	if err != nil {
-		log.Printf("[music] %v - serving %d tracks (cached=%v)", err, len(serve), keep)
+		log.Printf("[music] %v - serving %d tracks (cache complete=%v)", err, len(serve), next.complete)
 	}
-	if !keep && serve != nil {
-		s.cache = serve
-		s.fetchedA = time.Now()
-	}
-	if serve == nil {
-		return nil, err
+	s.cache = next
+	if serveErr != nil {
+		return nil, serveErr
 	}
 	return serve, nil
 }
@@ -120,31 +130,48 @@ func (s *Service) Songs(ctx context.Context) ([]Song, error) {
 // freeze the catalog at its last complete state forever.
 const maxStale = 10 * time.Minute
 
-// choose decides what a request is served after a scan. It returns the list
-// to serve and whether that list is the existing cache (keep=true) rather
-// than something new to cache.
+// choose decides what a request is served after a scan, and what is cached.
 //
-//   - complete scan: serve and cache it.
-//   - partial scan, cache younger than maxStale: serve the cache; the next
-//     request rescans because fetchedAt is not refreshed.
-//   - partial scan, no usable cache: serve and cache the partial list, since
-//     some tracks beat an error screen.
-//   - failed scan: serve any cache, however old; else nothing.
-func choose(cache []Song, fetchedAt, now time.Time, fresh []Song, err error) (serve []Song, keep bool) {
+//   - complete scan: serve and cache it, marked complete.
+//   - partial scan, complete cache younger than maxStale: serve the cache and
+//     leave it untouched; its age is not refreshed, so the next request rescans.
+//   - partial scan otherwise: serve whichever of the fresh scan and a cache
+//     younger than maxStale holds more tracks; a fresh partial is cached as
+//     partial. A partial cache
+//     never outranks a complete scan, and an earlier empty partial can no
+//     longer pin the catalog at zero - which is how "no tracks yet" stuck for
+//     ten minutes at a time on 2026-11-09.
+//   - partial scan that found nothing, with nothing better cached: an error,
+//     not an empty catalog. Zero tracks from a scan that could not read the
+//     registry is not an answer.
+//   - failed scan: serve any cache, however old; else an error.
+func choose(cache snapshot, now time.Time, fresh []Song, err error) (serve []Song, next snapshot, serveErr error) {
 	if err == nil {
-		return fresh, false
+		return fresh, snapshot{songs: fresh, at: now, complete: true}, nil
 	}
+
 	var inc *IncompleteError
-	if errors.As(err, &inc) {
-		if cache != nil && now.Sub(fetchedAt) < maxStale {
-			return cache, true
+	if !errors.As(err, &inc) {
+		if cache.songs != nil {
+			return cache.songs, cache, nil
 		}
-		return fresh, false
+		return nil, cache, err
 	}
-	if cache != nil {
-		return cache, true
+
+	if cache.complete && cache.songs != nil && now.Sub(cache.at) < maxStale {
+		return cache.songs, cache, nil
 	}
-	return nil, false
+	// A cache that wins keeps its original age, so it ages out at maxStale
+	// like any other: a track taken down on-chain cannot be kept alive by a
+	// run of partial scans that each happen to read fewer masters.
+	if now.Sub(cache.at) < maxStale && len(cache.songs) > len(fresh) {
+		return cache.songs, cache, nil
+	}
+	if len(fresh) == 0 {
+		// Cache nothing: the next request must rescan, not serve this.
+		return nil, snapshot{}, fmt.Errorf("%w (%v)", ErrCatalogUnavailable, err)
+	}
+	return fresh, snapshot{songs: fresh, at: now, complete: false}, nil
 }
 
 // Endpoint describes where the catalog comes from. Named for the health
