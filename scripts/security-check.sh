@@ -2,6 +2,7 @@
 # Security checks for empowertours.xyz and its API endpoints. Every check is a real request.
 #   scripts/security-check.sh                                   # live: site + api.empowertours.xyz
 #   SITE=http://localhost:18080 API=http://localhost:18081 scripts/security-check.sh   # local
+#   SITE=https://earvingallardo.com SKIP_API=1 scripts/security-check.sh               # any site, headers + exposure only
 # Exits non-zero if any check fails. Safe on production: it never stores a row
 # (form probes are rejected by validation or use the honeypot field).
 set -uo pipefail
@@ -48,6 +49,7 @@ case "$FINAL_SITE" in https://*)
   ;;
 esac
 
+if [ "${SKIP_API:-0}" = 1 ]; then echo; echo "$pass passed, $fail failed"; [ "$fail" -eq 0 ]; exit; fi
 echo "API: $API"
 J='content-type: application/json'
 ACAO=$(curl -s -D - -o /dev/null -H 'Origin: https://evil.example' "$API/api/v1/site/github" | grep -i '^access-control-allow-origin' | tr -d '\r')
