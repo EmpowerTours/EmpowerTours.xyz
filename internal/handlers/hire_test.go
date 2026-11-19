@@ -155,10 +155,15 @@ func (e *hireEnv) hook(t *testing.T, event string, payload any, sign bool) int {
 }
 
 func prEvent(action string, task int64, repoID, headRepoID, inst int64, merged bool) map[string]any {
+	return prEventBy("et-builder[bot]", "Bot", action, task, repoID, headRepoID, inst, merged)
+}
+
+func prEventBy(login, typ, action string, task int64, repoID, headRepoID, inst int64, merged bool) map[string]any {
 	return map[string]any{
 		"action": action, "installation": map[string]any{"id": inst}, "repository": map[string]any{"id": repoID, "full_name": "acme/app"},
 		"pull_request": map[string]any{"number": 7, "html_url": "https://github.com/acme/app/pull/7", "merged": merged,
 			"merge_commit_sha": strings.Repeat("a", 40),
+			"user":             map[string]any{"login": login, "type": typ},
 			"head":             map[string]any{"ref": fmt.Sprintf("et/task-%d", task), "repo": map[string]any{"id": headRepoID}}},
 	}
 }
@@ -242,6 +247,12 @@ func TestHireLifecycleAndWebhook(t *testing.T) {
 	e.hook(t, "pull_request", prEvent("opened", task, 600, 600, 20, false), true)
 	if s := e.stage(t, task); s != StageApproved {
 		t.Errorf("other repo moved task to %s", s)
+	}
+	// The client's own developer pushing et/task-1 in the client repo must not count.
+	e.hook(t, "pull_request", prEventBy("client-dev", "User", "opened", task, 500, 500, 10, false), true)
+	e.hook(t, "pull_request", prEventBy("et-builder", "User", "closed", task, 500, 500, 10, true), true)
+	if s := e.stage(t, task); s != StageApproved {
+		t.Errorf("non-bot PR moved task to %s", s)
 	}
 	e.hook(t, "pull_request", prEvent("opened", task, 500, 500, 10, false), true)
 	if s := e.stage(t, task); s != StageReview {

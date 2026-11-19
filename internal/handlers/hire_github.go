@@ -270,6 +270,10 @@ func (g HireGitHub) verifySignature(body []byte, header string) bool {
 	return hmac.Equal(got, m.Sum(nil))
 }
 
+func (g HireGitHub) isOurBot(login, typ string) bool {
+	return g.Slug != "" && typ == "Bot" && login == g.Slug+"[bot]"
+}
+
 var reTaskBranch = regexp.MustCompile(`^et/task-([0-9]{1,9})(?:-[a-z0-9-]{0,60})?$`)
 
 type ghWebhook struct {
@@ -288,9 +292,13 @@ type ghWebhook struct {
 	RepositoriesRemoved []ghRepo `json:"repositories_removed"`
 	Repository          ghRepo   `json:"repository"`
 	PullRequest         struct {
-		Number         int64  `json:"number"`
-		HTMLURL        string `json:"html_url"`
-		Merged         bool   `json:"merged"`
+		Number  int64  `json:"number"`
+		HTMLURL string `json:"html_url"`
+		Merged  bool   `json:"merged"`
+		User    struct {
+			Login string `json:"login"`
+			Type  string `json:"type"`
+		} `json:"user"`
 		MergeCommitSHA string `json:"merge_commit_sha"`
 		Head           struct {
 			Ref  string `json:"ref"`
@@ -367,6 +375,12 @@ func (h *HireHandler) onPullRequest(ctx context.Context, ev ghWebhook) error {
 	// The branch must live in the client's repo itself (we push there through the
 	// app), so a fork can't move a task by naming a branch et/task-N.
 	if ev.PullRequest.Head.Repo.ID != ev.Repository.ID {
+		return nil
+	}
+	// Only pull requests opened by our own app count. Anyone else with write
+	// access to the client's repo (their own developers) can't open a PR that
+	// makes a task payable.
+	if !h.GitHub.isOurBot(ev.PullRequest.User.Login, ev.PullRequest.User.Type) {
 		return nil
 	}
 	id, _ := strconv.ParseInt(m[1], 10, 64)
