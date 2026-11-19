@@ -265,9 +265,9 @@ function setFont(a){
   requestAnimationFrame(fitAll);
 }
 /* fit one-line wordmarks to their box so they never clip */
-function fit(el,max){if(!el)return;el.style.fontSize=max+'px';const ps=getComputedStyle(el.parentElement);const w=el.parentElement.clientWidth-parseFloat(ps.paddingLeft)-parseFloat(ps.paddingRight);const s=el.scrollWidth;if(s>w)el.style.fontSize=Math.floor(max*w/s*.98)+'px'}
+function fit(el,max){if(!el||!el.getClientRects().length)return;el.style.fontSize=max+'px';const pp=getComputedStyle(el.parentElement),ep=getComputedStyle(el);const w=el.parentElement.clientWidth-parseFloat(pp.paddingLeft)-parseFloat(pp.paddingRight)-parseFloat(ep.paddingLeft)-parseFloat(ep.paddingRight);const r=document.createRange();r.selectNodeContents(el);const s=r.getBoundingClientRect().width;if(s>w)el.style.fontSize=Math.floor(max*w/s*.98)+'px'}
 function fitAll(){fit(document.querySelector('.wordmark'),220);fit(document.getElementById('introWord'),128)}
-addEventListener('resize',fitAll);document.fonts.ready.then(fitAll);
+addEventListener('resize',fitAll);document.fonts.ready.then(fitAll);document.fonts.addEventListener('loadingdone',fitAll);
 
 /* routes */
 (function(){
@@ -301,7 +301,7 @@ addEventListener('keydown',e=>{
 
 /* intro */
 function runIntro(){
-  const el=document.getElementById('intro');el.classList.remove('done');el.style.display='grid';introOn=true;
+  const el=document.getElementById('intro');el.classList.remove('done');el.style.display='grid';introOn=true;fitAll();
   if(RM){finish();return}
   const IR=makeRenderer(document.getElementById('introCv'),{zoom:1.3,base:.92});
   const word=document.getElementById('introWord'),alt=document.getElementById('alti');word.classList.remove('on');
@@ -312,7 +312,7 @@ function runIntro(){
     const pins=t<3.2?0:Math.min(12,Math.floor((t-3.2)/.09)+1);
     IR.draw({yaw:-.4+t*.12,lift:e,reveal,pins,sel:-1,hover:-1,color:'#A9C4FF'});
     alt.textContent=Math.round(total*Math.min(1,t/2.8)).toLocaleString('en-US');
-    if(t>2.6)word.classList.add('on');
+    if(t>2.6&&!word.classList.contains('on')){fitAll();word.classList.add('on')}
     if(t>5)return finish();
     requestAnimationFrame(step);
   }
