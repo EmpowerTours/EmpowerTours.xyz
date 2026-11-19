@@ -1,40 +1,222 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>EmpowerTours | Monad Universe - TOURS Tokenomics</title>
-    <meta name="description" content="EmpowerTours builds next-generation infrastructure on Monad. Explore TOURS token economics, allocation, vesting, and governance." />
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Syncopate:wght@400;700&display=swap" rel="stylesheet">
-    <style>
-      html {
-        scroll-behavior: smooth;
-        scroll-padding-top: 100px; /* Offset for fixed header */
-        -ms-overflow-style: none;  /* IE and Edge */
-        scrollbar-width: none;  /* Firefox */
-      }
-      
-      /* Hide scrollbar for Chrome, Safari and Opera */
-      ::-webkit-scrollbar {
-        display: none;
-      }
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>EmpowerTours · software studio, Guerrero MX</title>
+<meta name="description" content="EmpowerTours builds and runs live apps: AI agents for Dubai and on-chain products on Monad. Try every app on the page, then hire us per merged task.">
+<link rel="canonical" href="https://empowertours.xyz/">
+<meta name="theme-color" content="#080D24">
+<meta property="og:type" content="website">
+<meta property="og:title" content="EmpowerTours">
+<meta property="og:description" content="Twelve live apps. Climb to one and try it.">
+<meta property="og:url" content="https://empowertours.xyz/">
+<meta property="og:image" content="https://empowertours.xyz/og.jpg">
+<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://empowertours.xyz/og.jpg">
+<link rel="icon" href="/icon-32.png" sizes="32x32" type="image/png">
+<link rel="icon" href="/icon-48.png" sizes="48x48" type="image/png">
+<link rel="apple-touch-icon" href="/icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;900&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="/src/style.css">
+<script type="module" src="/src/main.js"></script>
+</head>
+<body>
+<a class="skip-link" href="#drive">Skip to content</a>
+<div id="intro" aria-hidden="true">
+  <canvas id="introCv"></canvas>
+  <div class="intro-word" id="introWord">EmpowerTours</div>
+  <div class="intro-hud"><span>ELEVATION GAINED</span><b id="alti">0</b><span>CONTRIBUTIONS ON GITHUB, LAST 12 MONTHS</span></div>
+  <button class="skip" id="skip" type="button">Skip intro →</button>
+</div>
+<div id="flood"></div>
 
-      body {
-        font-family: 'Space Grotesk', sans-serif;
-        background-color: #020205; /* Deep Space Black */
-        color: #fff;
-        overflow-x: hidden;
-      }
-      h1, h2, h3, .font-heading {
-        font-family: 'Syncopate', sans-serif;
-      }
-    </style>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/index.tsx"></script>
-  </body>
+<header>
+  <div class="wrap">
+    <a class="brand" href="#drive">
+      <svg width="26" height="22" viewBox="0 0 26 22" aria-hidden="true"><path d="M1 21 9 7l4 6 4-9 8 17Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" style="color:var(--acc)"/><circle cx="15.5" cy="6.5" r="1.6" fill="#9A74D6"/></svg>
+      EmpowerTours
+    </a>
+    <nav class="top" aria-label="Sections">
+      <a href="#drive">Test drive</a><a href="#routes">Routes</a><a href="#log">Shipping log</a><a href="#hire">Hire us</a><a href="#join">Careers</a>
+      <button class="kbtn" id="kbtn" type="button" aria-label="Jump to an app or section">⌘K</button>
+      <a class="cta" href="#contact">Start a project</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+<section id="drive" class="stage">
+  <div class="wrap">
+    <div class="stage-top">
+      <div>
+        <div class="eyebrow"><b>●</b> Software studio · Chilpancingo, Guerrero, MX · 01 Test drive</div>
+        <h1 class="stage-title">Twelve live apps. <em>Climb to one and try it.</em></h1>
+      </div>
+      <p>Every camp on the mountain is a product we built and run. Pick one and use it right here; anything that needs your wallet continues full screen in the real app.</p>
+    </div>
+    <div class="chips2" id="chips2" role="group" aria-label="Apps"></div>
+    <div class="stage-grid">
+      <div class="mtn" id="mtn">
+        <canvas id="mtnCv" aria-label="Mountain map of EmpowerTours apps. Use the app buttons or arrow keys to choose." role="img"></canvas>
+        <div class="hud"><span>CAMP <b id="hudN">01</b> / 12</span><span id="hudR">DUBAI ROUTE</span></div>
+        <div class="legend2"><span><i style="background:#FF5CA8"></i>Dubai route · AI agents</span><span><i style="background:#4FF0B4"></i>Monad range · on-chain</span></div>
+      </div>
+      <div class="camp-panel">
+        <div class="camp-head"><span class="camp-name" id="cName">Hunt Dubai</span><span class="camp-route" id="cRoute">Dubai route</span></div>
+        <p class="camp-desc" id="cDesc"></p>
+        <ol class="how" id="cHow" aria-label="How it works"></ol>
+        <div class="device">
+          <div class="bar"><span class="url"><b>🔒</b> <span id="durl"></span></span><a id="dopen" href="#">Full screen ↗</a></div>
+          <div class="viewport"><img id="dimg" alt="App running live"><div class="note"><span></span><span class="wl" id="dwallet"></span></div></div>
+        </div>
+        <div class="camp-meta" id="cMeta"></div>
+        <div class="links"><a id="cOpen" href="#">Open app ↗</a><a id="cSrc" href="#">Source ↗</a><span class="keys"><kbd>←</kbd> <kbd>→</kbd> next camp · <kbd>⌘K</kbd> jump</span></div>
+      </div>
+    </div>
+    <div class="stats">
+      <div><b><span data-contrib>3,400+</span></b><span>GitHub contributions, last 12 months</span></div>
+      <div><b>12</b><span>live apps you can try above</span></div>
+      <div><b>7</b><span>Dubai AI Agents Championship entries</span></div>
+      <div><b>143</b><span>Monad mainnet chain id we ship to</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="routes">
+  <div class="wrap">
+    <div class="eyebrow"><b>02</b> Routes · everything we've built</div>
+    <h2>Three routes up the same mountain.</h2>
+    <div class="routes" id="routesEl"></div>
+  </div>
+</section>
+<section id="log">
+  <div class="wrap">
+    <div class="eyebrow"><b>03</b> Shipping log · pulled from GitHub</div>
+    <h2>Proof of work, updated every hour.</h2>
+    <p class="lede">The same live feed as earvingallardo.com: the contribution calendar and the latest commits across our public repos.</p>
+    <div class="log">
+      <div class="panel">
+        <h3>Contributions <small>3,406 in the last year</small></h3>
+        <div class="grid-scroll"><div id="cal" role="img" aria-label="GitHub contribution calendar, last 12 months"></div></div>
+        <div class="legend">less <i style="background:#16204c"></i><i style="background:#2a3f86"></i><i style="background:#4a64b8"></i><i style="background:#7d97e4"></i><i style="background:#A9C4FF"></i> more</div>
+      </div>
+      <div class="panel">
+        <h3>Latest commits <small>public repos</small></h3>
+        <ul class="commits"><li><code>ffc0476</code><span class="m">Ground raycast falls back to the LiDAR mesh; on-screen diagnostics; report session failu</span><span class="r">site-tape · Nov 13</span></li><li><code>cf87de3</code><span class="m">Night use: auto flashlight when dark, Light button, night tips</span><span class="r">site-tape · Nov 13</span></li><li><code>c85a939</code><span class="m">Site Tape: ARKit site measuring app with pins, plan view, export, and TestFlight CI</span><span class="r">site-tape · Nov 12</span></li><li><code>7a0fb53</code><span class="m">Merge pull request #17 from EmpowerTours/release/cache-and-free-mints</span><span class="r">fcempowertours · Nov 09</span></li><li><code>652c5ff</code><span class="m">verify-require-user-proof: handle removed Monad Mirror, fix stale GETDEL check</span><span class="r">fcempowertours · Nov 09</span></li><li><code>95895b2</code><span class="m">Merge wt/sponsored-mint: free mints, TOURS/DAO/venue-mining removal, art feed</span><span class="r">fcempowertours · Nov 09</span></li><li><code>ed79159</code><span class="m">Initial release: pay workers directly with CoDi through pey</span><span class="r">codi-direct · Nov 08</span></li><li><code>878526a</code><span class="m">Cota trade: leave room for the loss an add must collateralize</span><span class="r">empowertours-hunt · Nov 02</span></li></ul>
+      </div>
+    </div>
+  </div>
+</section><section id="why">
+  <div class="wrap">
+    <div class="eyebrow"><b>04</b> What we stand for</div>
+    <h2>Rules in code, not in promises.</h2>
+    <div class="principles">
+      <div class="pr"><div class="k">for artists</div><h3>Creators keep 90%.</h3><p>On EmpowerTours art and music, the artist keeps 90% of every licence sale and minting is free: the platform pays the gas.</p><a class="proof" href="https://github.com/EmpowerTours/fcempowertours">read the contract →</a></div>
+      <div class="pr"><div class="k">for everyone</div><h3>No seed phrases.</h3><p>Your face or fingerprint makes the wallet. People who have never touched crypto can play Hunt and get paid in MON.</p><a class="proof" href="https://github.com/EmpowerTours/empowertours-hunt">see the passkey flow →</a></div>
+      <div class="pr"><div class="k">for trust</div><h3>The contract says no.</h3><p>Compliance, limits and payouts are enforced on-chain. Clearwave (on testnet) refuses unverified buyers inside the token itself, not in a UI that can be bypassed.</p><a class="proof" href="https://github.com/EmpowerTours/clearwave">audit it yourself →</a></div>
+    </div>
+    <div class="token">
+      <span class="k">TOURS · NEXT</span>
+      <p><b>TOURS is moving into our gaming ecosystem.</b> Our apps run on MON today. TOURS comes back as part of the games we're building, starting with Hunt. The contracts, the source and the rules will be published here before anything goes live.</p>
+    </div>
+  </div>
+</section><section id="hire">
+  <div class="wrap">
+    <div class="eyebrow"><b>05</b> Hire us on your repo · coming next</div>
+    <h2>Pay per merged task, not per hour.</h2>
+    <p class="lede">Connect your GitHub, fund a project balance in MON, and we ship pull requests into your repo. You merge what you accept; only accepted work is paid.</p>
+    <div class="steps">
+      <div class="step"><span class="n">step 1 · github</span><h3>Connect your repo</h3><p>Install the EmpowerTours GitHub App on the repos you pick. We never ask for your password, and you can revoke access in one click.</p></div>
+      <div class="step"><span class="n">step 2 · balance</span><h3>Fund the project</h3><p>Deposit MON into the project's escrow contract. The balance is on-chain and visible; unused funds withdraw back to you at any time.</p></div>
+      <div class="step"><span class="n">step 3 · ship</span><h3>Merge and release</h3><p>We quote each task, open a PR, you review and merge. The merge releases that task's payment. Nothing else moves your money.</p></div>
+    </div>
+    <div class="toggle" role="group" aria-label="Pricing model">
+      <button type="button" aria-pressed="true" data-m="pr">Fixed price per task</button>
+      <button type="button" aria-pressed="false" data-m="hr">Per hour</button>
+    </div>
+    <p class="price-note" id="pnote">Each task gets a fixed price before work starts. You pay only when you merge its pull request, so you never pay for time you can't check or work you didn't accept.</p>
+    <div class="hero-actions" style="margin-top:22px"><a class="btn primary" id="scoper1" href="https://claude.ai/artifact/GM7YqCURd78cW85gQVzLvE" target="_blank" rel="noopener">Scope your project with Claude ↗</a><a class="btn" href="#contact">Or send a short brief</a></div>
+    <p class="price-note" style="font-size:13px">The scoper runs on your own Claude plan: Claude splits your idea into priced, PR-sized tasks and sends us the brief. Free for you, no API key.</p>
+    <div class="ledger">
+      <table>
+        <caption>Example project ledger · sample data</caption>
+        <thead><tr><th>Task</th><th>Pull request</th><th id="qcol">Quote</th><th>Status</th></tr></thead>
+        <tbody id="lrows">
+          <tr><td>Passkey sign-in</td><td>#41</td><td>120 MON</td><td><span class="pill ok">merged · paid</span></td></tr>
+          <tr><td>Checkout with CoDi</td><td>#44</td><td>200 MON</td><td><span class="pill open">in review</span></td></tr>
+          <tr><td>Admin dashboard</td><td>—</td><td>150 MON</td><td><span class="pill wait">quoted · awaiting OK</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section><section id="contact">
+  <div class="wrap">
+    <div class="eyebrow"><b>06</b> Start a project</div>
+    <h2>Tell us what you want built.</h2>
+    <div class="split">
+      <div>
+        <p class="lede" style="margin-top:0">Share as much or as little as you're comfortable with. Inquiries are confidential, and we reply by email within two business days.</p>
+        <blockquote style="margin:30px 0 0;font:600 22px/1.35 var(--f-display)">"Every climb starts in a place nobody is watching. We build from there, and we show our work."</blockquote>
+        <p class="keyline" style="margin-top:12px">Earvin Gallardo · founder · US Marine Corps veteran</p>
+      </div>
+      <form class="formpanel" id="inq" novalidate>
+        <div class="formgrid">
+          <div class="fld"><label for="i-name">Name</label><input id="i-name" name="name" required maxlength="120" name="name" autocomplete="name"></div>
+          <div class="fld"><label for="i-email">Email</label><input id="i-email" name="email" required maxlength="200" type="email" autocomplete="email"></div>
+          <div class="fld"><label for="i-type">What should we build?</label><select id="i-type" name="type"><option>Web app</option><option>Mobile app</option><option>Smart contracts</option><option>AI agent</option><option>Payments (CoDi, crypto)</option><option>Game</option><option>Something else</option></select></div>
+          <div class="fld"><label for="i-budget">Budget <small>(optional)</small></label><select id="i-budget" name="budget"><option>Not sure yet</option><option>Under US$2,000</option><option>US$2,000 – 10,000</option><option>US$10,000 – 50,000</option><option>Over US$50,000</option></select></div>
+          <div class="fld"><label for="i-when">When <small>(optional)</small></label><input id="i-when" name="when" placeholder="A date, or ongoing"></div>
+          <div class="fld"><label for="i-repo">Existing repo or site <small>(optional)</small></label><input id="i-repo" name="repo" type="url" placeholder="https://github.com/…"></div>
+          <div class="fld full"><label for="i-msg">The details</label><textarea id="i-msg" name="message" required maxlength="8000" placeholder="Who it's for, what it must do, what already exists."></textarea></div>
+          <input type="text" name="website" tabindex="-1" autocomplete="off" hidden>
+        </div>
+        <div class="formfoot"><small>We reply by email within two business days. <a href="/privacy">Privacy</a></small><button class="btn primary" type="submit">Send inquiry</button></div>
+        <p class="formmsg" id="inq-msg" role="status" hidden></p>
+      </form>
+    </div>
+  </div>
+</section><section id="join">
+  <div class="wrap">
+    <div class="eyebrow"><b>07</b> Careers</div>
+    <h2>Builders: ship with us.</h2>
+    <div class="split">
+      <div>
+        <p class="lede" style="margin-top:0">We're building a team of developers and designers who ship. Show us your GitHub and something you built that real people used.</p>
+        <div class="assure" style="margin-top:26px">
+          <div><b>ENCRYPTED</b><span>Your application and CV are encrypted in your browser before they leave your device.</span></div>
+          <div><b>PRIVATE</b><span>Only EmpowerTours' hiring key can unlock them. Not our servers, not our email.</span></div>
+          <div><b>YOURS</b><span>Ask any time and we delete your application.</span></div>
+        </div>
+      </div>
+      <form class="formpanel" id="job" novalidate><input type="text" name="website" tabindex="-1" autocomplete="off" hidden aria-hidden="true">
+        <div class="formgrid">
+          <div class="fld"><label for="j-name">Name</label><input id="j-name" name="name" required maxlength="120" autocomplete="name"></div>
+          <div class="fld"><label for="j-email">Email</label><input id="j-email" name="email" required maxlength="200" type="email" autocomplete="email"></div>
+          <div class="fld"><label for="j-gh">GitHub profile</label><input id="j-gh" name="github" maxlength="300" type="url" placeholder="https://github.com/…"></div>
+          <div class="fld"><label for="j-loc">Where you're based</label><input id="j-loc" name="location" maxlength="120" placeholder="City, country"></div>
+          <fieldset class="fld full"><legend>What you build</legend><div class="checks">
+            <label><input type="checkbox" id="j-sol" name="skill" value="Solidity">Solidity</label><label><input type="checkbox" id="j-ts" name="skill" value="TypeScript / React" >TypeScript / React</label><label><input type="checkbox" id="j-go" name="skill" value="Go">Go</label><label><input type="checkbox" id="j-mob" name="skill" value="iOS / Android">iOS / Android</label><label><input type="checkbox" id="j-ai" name="skill" value="AI agents">AI agents</label><label><input type="checkbox" id="j-des" name="skill" value="Design">Design</label>
+          </div></fieldset>
+          <div class="fld full"><label for="j-ship">Something you shipped <small>(link)</small></label><input id="j-ship" name="shipped" maxlength="300" type="url" placeholder="A live app, a merged PR, a repo"></div>
+          <div class="fld full"><label for="j-cv">CV <small>(PDF, up to 5 MB, encrypted before upload; optional)</small></label><input id="j-cv" name="cv" type="file" accept="application/pdf"></div>
+          <div class="fld full"><label for="j-more">Anything else <small>(optional)</small></label><textarea id="j-more" name="message" maxlength="4000" placeholder="Languages, availability, time zone"></textarea></div>
+          <label class="full" style="display:flex;gap:10px;font-size:14px;color:var(--muted)"><input type="checkbox" id="j-ok" name="consent" style="accent-color:var(--ice)">I agree EmpowerTours can keep my application to consider me for work.</label>
+        </div>
+        <div class="formfoot"><small class="keyline">AES-256-GCM + RSA-4096 · encrypted on your device</small><button class="btn primary" type="submit">Encrypt and send</button></div>
+        <p class="formmsg" id="job-msg" role="status" hidden></p>
+      </form>
+    </div>
+  </div>
+</section>
+</main>
+<div class="wrap" aria-hidden="true"><div class="wordmark">EmpowerTours</div></div>
+<footer><div class="wrap"><span>© 2026 Empowertours, S.A.S. de C.V. · Chilpancingo, Guerrero, México</span><span><a href="/privacy">Privacy</a> · <a href="https://github.com/EmpowerTours" rel="noopener noreferrer">GitHub</a> · built on Monad</span></div></footer>
+
+<div id="pal" role="dialog" aria-label="Jump to"><div class="pal-box"><input id="palIn" placeholder="Jump to an app or section…" autocomplete="off"><ul id="palList"></ul></div></div>
+
+</body>
 </html>
