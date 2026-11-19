@@ -8,7 +8,7 @@
 	encode zstd gzip
 
 	header {
-		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; style-src-attr 'unsafe-inline'; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://api.empowertours.xyz; frame-src https://clearwave-production.up.railway.app https://backlog-production-d1b6.up.railway.app https://turbo-empowertours-production.up.railway.app; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'; upgrade-insecure-requests"
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; style-src-attr 'unsafe-inline'; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://api.empowertours.xyz; frame-src https://hunt-dubai.empowertours.xyz https://faez.empowertours.xyz https://relocatedubai.empowertours.xyz https://sawweeli.empowertours.xyz https://cosecha.empowertours.xyz https://asas.empowertours.xyz https://haqiqi.empowertours.xyz https://art.empowertours.xyz https://hunt.empowertours.xyz https://clearwave-production.up.railway.app https://backlog-production-d1b6.up.railway.app https://turbo-empowertours-production.up.railway.app; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'; upgrade-insecure-requests"
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
 		X-Content-Type-Options "nosniff"
 		X-Frame-Options "DENY"
