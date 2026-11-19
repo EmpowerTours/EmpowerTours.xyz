@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"net"
 	"net/http"
 	"sync"
 	"time"
@@ -49,6 +50,11 @@ func (rl *RateLimiter) Middleware(next http.Handler) http.Handler {
 		ip := r.RemoteAddr
 		if forwarded := r.Header.Get("X-Real-IP"); forwarded != "" {
 			ip = forwarded
+		}
+		// Key on the host alone: RemoteAddr carries the client port, which changes on
+		// every connection and would otherwise give each request a fresh allowance.
+		if host, _, err := net.SplitHostPort(ip); err == nil {
+			ip = host
 		}
 
 		rl.mu.Lock()
