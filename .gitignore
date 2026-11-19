@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Keys never live in the repo
+*.pem
+*.key
+.env*

@@ -1,0 +1,54 @@
+{
+	admin off
+	auto_https off
+}
+
+:{$PORT:8080} {
+	root * /srv
+	encode zstd gzip
+
+	header {
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; style-src-attr 'unsafe-inline'; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://api.empowertours.xyz; frame-src https://clearwave-production.up.railway.app https://backlog-production-d1b6.up.railway.app https://turbo-empowertours-production.up.railway.app; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'; upgrade-insecure-requests"
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()"
+		Cross-Origin-Opener-Policy "same-origin"
+		Cross-Origin-Resource-Policy "same-origin"
+		-Server
+	}
+
+	# Link previews (X, Slack) must be able to load the share image.
+	@og path /og.jpg
+	header @og Cross-Origin-Resource-Policy "cross-origin"
+
+	# Hashed build assets never change; everything else revalidates.
+	@assets path /assets/*
+	header @assets Cache-Control "public, max-age=31536000, immutable"
+	@pages not path /assets/*
+	header @pages Cache-Control "public, max-age=300, must-revalidate"
+
+	# The legacy pages block-party.html and leaflet.html keep their own inline code,
+	# so they get a looser policy than the main site.
+	@legacy path /block-party.html /leaflet.html
+	header @legacy Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https: wss:; frame-ancestors 'none'; base-uri 'none'; object-src 'none'"
+
+	handle /privacy {
+		rewrite * /privacy.html
+		file_server
+	}
+	handle /start {
+		rewrite * /index.html
+		file_server
+	}
+	handle {
+		try_files {path} {path}.html
+		file_server
+	}
+
+	handle_errors {
+		rewrite * /index.html
+		file_server
+	}
+}
