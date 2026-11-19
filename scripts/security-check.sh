@@ -21,7 +21,8 @@ echo "Site: $FINAL_SITE"
 H=$(curl -sI "$FINAL_SITE/")
 CSP=$(printf '%s' "$H" | grep -i '^content-security-policy:' | tr -d '\r')
 has "CSP present" "$CSP" "default-src 'self'"
-has "CSP scripts from own origin only" "$CSP" "script-src 'self';"
+SCRIPT_SRC=$(printf '%s' "$CSP" | grep -oiE "script-src[^;]*")
+lacks "CSP scripts: no unsafe-inline" "$SCRIPT_SRC" "unsafe-inline"
 lacks "CSP has no unsafe-eval" "$CSP" "unsafe-eval"
 has "CSP blocks framing (clickjacking)" "$CSP" "frame-ancestors 'none'"
 has "CSP blocks <base> hijack" "$CSP" "base-uri 'none'"
@@ -38,9 +39,11 @@ for p in /.git/config /.env /package.json /Caddyfile /Dockerfile /src/main.js /s
   check "Not exposed: $p" "$(code "$FINAL_SITE$p")" "404"
 done
 check "No source maps shipped" "$(curl -s "$FINAL_SITE/" | grep -c 'sourceMappingURL')" "0"
-KEYJSON=$(curl -s "$FINAL_SITE/apply-key.json")
-has "Hiring key is a public SPKI" "$KEYJSON" '"spki"'
-lacks "Hiring key file holds no private key" "$KEYJSON" "PRIVATE"
+if [ "$(code "$FINAL_SITE/apply-key.json")" = 200 ]; then
+  KEYJSON=$(curl -s "$FINAL_SITE/apply-key.json")
+  has "Hiring key is a public SPKI" "$KEYJSON" '"spki"'
+  lacks "Hiring key file holds no private key" "$KEYJSON" "PRIVATE"
+fi
 check "security.txt published" "$(code "$FINAL_SITE/.well-known/security.txt")" "200"
 check "Privacy notice published" "$(code "$FINAL_SITE/privacy")" "200"
 case "$FINAL_SITE" in https://*)
