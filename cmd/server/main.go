@@ -156,6 +156,52 @@ func main() {
 	r.With(siteAdminLimiter.Middleware).Get("/api/v1/site/admin/inquiries", siteHandler.ListInquiries)
 	r.With(siteAdminLimiter.Middleware).Get("/api/v1/site/admin/applications", siteHandler.ListApplications)
 
+	// Hire portal (empowertours.xyz/hire): GitHub sign-in, fixed-price tasks paid after merge.
+	hireHandler := &handlers.HireHandler{
+		DB:         db,
+		AdminToken: os.Getenv("SITE_ADMIN_TOKEN"),
+		Origins:    []string{"https://www.empowertours.xyz", "https://empowertours.xyz"},
+		SiteURL:    "https://www.empowertours.xyz/hire",
+		GitHub: handlers.HireGitHub{
+			Slug:          os.Getenv("HIRE_GH_APP_SLUG"),
+			ClientID:      os.Getenv("HIRE_GH_CLIENT_ID"),
+			ClientSecret:  os.Getenv("HIRE_GH_CLIENT_SECRET"),
+			WebhookSecret: os.Getenv("HIRE_GH_WEBHOOK_SECRET"),
+			CallbackURL:   "https://api.empowertours.xyz/api/v1/hire/auth/callback",
+		},
+		MON:    handlers.HireMON{RPCURL: cfg.MonadRPCURL, Treasury: os.Getenv("HIRE_MON_TREASURY"), ChainID: 143, MinConf: 2},
+		Notify: siteHandler.SMTP,
+		Client: &http.Client{Timeout: 20 * time.Second},
+	}
+	hireLimiter := appMw.NewRateLimiter(120, time.Minute)
+	hireAuthLimiter := appMw.NewRateLimiter(30, time.Minute)
+	r.Route("/api/v1/hire", func(r chi.Router) {
+		r.Post("/github/webhook", hireHandler.Webhook) // HMAC-verified; GitHub's IPs, no rate limit
+		r.With(hireAuthLimiter.Middleware).Get("/auth/start", hireHandler.AuthStart)
+		r.With(hireAuthLimiter.Middleware).Get("/auth/callback", hireHandler.AuthCallback)
+		r.With(hireAuthLimiter.Middleware).Post("/auth/logout", hireHandler.Logout)
+		r.Group(func(r chi.Router) {
+			r.Use(hireLimiter.Middleware, hireHandler.RequireClient)
+			r.Get("/me", hireHandler.Me)
+			r.Put("/billing", hireHandler.PutBilling)
+			r.Get("/projects", hireHandler.Projects)
+			r.Post("/projects", hireHandler.CreateProject)
+			r.Post("/tasks/{id}/approve", hireHandler.Approve)
+			r.Post("/tasks/{id}/question", hireHandler.Question)
+			r.Post("/tasks/{id}/bug", hireHandler.ReportBug)
+			r.Post("/tasks/{id}/pay/mon", hireHandler.PayMONIntent)
+			r.Post("/tasks/{id}/pay/mon/confirm", hireHandler.PayMONConfirm)
+		})
+		r.Group(func(r chi.Router) {
+			r.Use(siteAdminLimiter.Middleware, hireHandler.RequireAdmin)
+			r.Get("/admin/projects", hireHandler.AdminProjects)
+			r.Post("/admin/tasks", hireHandler.AdminCreateTask)
+			r.Post("/admin/tasks/{id}/quote", hireHandler.AdminQuoteBug)
+			r.Post("/admin/tasks/{id}/stage", hireHandler.AdminStage)
+			r.Post("/admin/tasks/{id}/paid", hireHandler.AdminPesoPaid)
+		})
+	})
+
 	r.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.Dir(staticDir))))
 	r.Handle("/_expo/*", http.StripPrefix("/_expo/", http.FileServer(http.Dir(filepath.Join(appDir, "_expo")))))
 	r.Get("/app", func(w http.ResponseWriter, r *http.Request) {
