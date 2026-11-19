@@ -139,6 +139,23 @@ func main() {
 	r.Post("/api/v1/plays/{tokenId}", playsHandler.RecordPlay)
 	r.Get("/api/v1/plays", playsHandler.ListPlays)
 
+	// Marketing site (empowertours.xyz): GitHub feed, project inquiries, encrypted careers inbox.
+	siteHandler := &handlers.SiteHandler{
+		DB:          db,
+		GitHubUser:  "EmpowerTours",
+		GitHubToken: os.Getenv("GITHUB_TOKEN"),
+		AdminToken:  os.Getenv("SITE_ADMIN_TOKEN"),
+		SMTP:        handlers.SiteSMTP{Host: os.Getenv("SITE_SMTP_HOST"), User: os.Getenv("SITE_SMTP_USER"), Pass: os.Getenv("SITE_SMTP_PASS"), To: os.Getenv("SITE_NOTIFY_TO")},
+		Client:      &http.Client{Timeout: 20 * time.Second},
+	}
+	siteFormLimiter := appMw.NewRateLimiter(6, time.Hour)
+	r.Get("/api/v1/site/github", siteHandler.GitHub)
+	r.With(siteFormLimiter.Middleware).Post("/api/v1/site/inquiry", siteHandler.Inquiry)
+	r.With(siteFormLimiter.Middleware).Post("/api/v1/site/application", siteHandler.Application)
+	siteAdminLimiter := appMw.NewRateLimiter(30, time.Hour)
+	r.With(siteAdminLimiter.Middleware).Get("/api/v1/site/admin/inquiries", siteHandler.ListInquiries)
+	r.With(siteAdminLimiter.Middleware).Get("/api/v1/site/admin/applications", siteHandler.ListApplications)
+
 	r.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.Dir(staticDir))))
 	r.Handle("/_expo/*", http.StripPrefix("/_expo/", http.FileServer(http.Dir(filepath.Join(appDir, "_expo")))))
 	r.Get("/app", func(w http.ResponseWriter, r *http.Request) {
