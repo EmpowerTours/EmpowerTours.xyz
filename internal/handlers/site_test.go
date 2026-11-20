@@ -16,11 +16,13 @@ func siteTestDB(t *testing.T) *sqlx.DB {
 	t.Helper()
 	db := sqlx.MustConnect("sqlite3", ":memory:")
 	db.SetMaxOpenConns(1)
-	sql, err := os.ReadFile("../database/migrations/022_site_inbox.sql")
-	if err != nil {
-		t.Fatal(err)
+	for _, f := range []string{"022_site_inbox.sql", "023_site_quotes.sql"} {
+		sql, err := os.ReadFile("../database/migrations/" + f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		db.MustExec(string(sql))
 	}
-	db.MustExec(string(sql))
 	return db
 }
 
