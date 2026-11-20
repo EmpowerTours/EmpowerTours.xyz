@@ -323,3 +323,12 @@ body{background:radial-gradient(1200px 700px at 30% 0%,color-mix(in srgb,var(--a
 .privacy h2{font-size:22px;margin-top:28px}
 .privacy p,.privacy li{color:var(--muted)}
 footer a{color:var(--muted)}
+.start h1{text-transform:none;font-size:clamp(34px,6vw,48px);margin-top:12px}
+.start .formpanel{margin-top:24px}
+.spec-summary dl{display:grid;grid-template-columns:minmax(0,180px) minmax(0,1fr);gap:10px 18px;margin:0}
+.spec-summary dt{font:500 12px var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--ice-dim);padding-top:3px}
+.spec-summary dd{margin:0;color:var(--text);overflow-wrap:anywhere}
+.spec-summary ul{margin:0;padding-left:18px}
+.consent{display:flex;gap:10px;align-items:center;font-size:14px;color:var(--muted)}
+.consent input{accent-color:var(--ice)}
+@media (max-width:600px){.spec-summary dl{grid-template-columns:minmax(0,1fr);gap:2px}.spec-summary dd{margin-bottom:10px}}

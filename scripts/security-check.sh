@@ -46,6 +46,7 @@ if [ "$(code "$FINAL_SITE/apply-key.json")" = 200 ]; then
 fi
 check "security.txt published" "$(code "$FINAL_SITE/.well-known/security.txt")" "200"
 check "Privacy notice published" "$(code "$FINAL_SITE/privacy")" "200"
+check "Quote start page published" "$(code "$FINAL_SITE/start")" "200"
 case "$FINAL_SITE" in https://*)
   check "Plain HTTP is not served" "$(curl -s -o /dev/null -w '%{http_code}' "http://${FINAL_SITE#https://}/")" "301"
   if echo | timeout 10 openssl s_client -connect "${FINAL_SITE#https://}:443" -servername "${FINAL_SITE#https://}" -tls1_1 >/dev/null 2>&1; then no "TLS 1.1 refused" "handshake succeeded"; else ok "TLS 1.1 refused"; fi
@@ -65,6 +66,9 @@ check "Inquiry rejects bad email" "$(code -X POST -H "$J" -d '{"name":"x","email
 BIG=$(head -c 40000 /dev/zero | tr '\0' 'a')
 check "Inquiry rejects oversized body" "$(code -X POST -H "$J" -d "{\"name\":\"x\",\"email\":\"a@b.co\",\"message\":\"$BIG\"" "$API/api/v1/site/inquiry")" "400"
 check "Application rejects plaintext" "$(code -X POST -H "$J" -d '{"v":1,"name":"plain text"}' "$API/api/v1/site/application")" "400"
+check "Quote request rejects a bad spec" "$(code -X POST -H "$J" -d '{"spec":{"v":1,"name":"x","login":"bogus"},"name":"x","email":"a@b.co","country":"MX"}' "$API/api/v1/site/quote-request")" "400"
+check "Quote review page needs a valid token" "$(code "$API/api/v1/site/admin/quotes/1?t=wrong-token")" "404"
+check "Pricing admin needs a token" "$(code "$API/api/v1/site/admin/pricing")" "401"
 G=$(code "$API/api/v1/site/inquiry"); if [ "$G" = 200 ]; then no "Inquiry GET refused" "got 200"; else ok "Inquiry GET refused ($G)"; fi
 check "Admin read needs a token" "$(code "$API/api/v1/site/admin/inquiries")" "401"
 check "Admin read refuses a wrong token" "$(code -H 'Authorization: Bearer wrong-token-wrong-token-wrong-token-1' "$API/api/v1/site/admin/applications")" "401"

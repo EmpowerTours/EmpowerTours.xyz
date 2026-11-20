@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Request a quote · EmpowerTours</title>
+<meta name="description" content="Send your scoped project to EmpowerTours and get a fixed-price quote by email.">
+<meta name="robots" content="noindex">
+<link rel="canonical" href="https://www.empowertours.xyz/start">
+<meta name="theme-color" content="#080D24">
+<link rel="icon" href="/icon-32.png" sizes="32x32" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;900&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="/src/style.css">
+<script type="module" src="/src/start.js"></script>
+</head>
+<body>
+<main class="privacy start">
+  <p><a href="/">← EmpowerTours</a></p>
+
+  <section id="nospec" hidden>
+    <h1>No project found</h1>
+    <p>This page opens from the Project Scoper with your project attached. The link you used has no project, or it was cut off.</p>
+    <p><a class="btn primary" href="/#hire">Go back and scope your project</a> <a class="btn" href="/#contact">Or send a short brief</a></p>
+  </section>
+
+  <section id="haveSpec" hidden>
+    <div class="eyebrow"><b>●</b> Request a quote</div>
+    <h1 id="specName">Your project</h1>
+    <p>Check the summary, tell us where to send the quote, and we'll reply with a fixed price.</p>
+    <div class="formpanel spec-summary"><dl id="specList"></dl></div>
+
+    <form class="formpanel" id="quote" novalidate>
+      <div class="formgrid">
+        <div class="fld"><label for="q-name">Name</label><input id="q-name" name="name" required maxlength="120" autocomplete="name"></div>
+        <div class="fld"><label for="q-email">Email</label><input id="q-email" name="email" required maxlength="200" type="email" autocomplete="email"></div>
+        <div class="fld full"><label for="q-country">Where will this be invoiced?</label>
+          <select id="q-country" name="country" required>
+            <option value="" selected disabled>Choose a country</option>
+            <option value="MX">Mexico</option>
+            <option value="US">United States</option>
+            <option value="CA">Canada</option>
+            <option value="EU">A European country/UK</option>
+            <option value="GULF">UAE/Saudi/Qatar/other Gulf</option>
+            <option value="OTHER">Other</option>
+          </select>
+        </div>
+        <label class="full consent"><input type="checkbox" id="q-ok" name="consent" required>I agree to the <a href="/privacy">privacy notice</a>.</label>
+        <input type="text" name="website" tabindex="-1" autocomplete="off" hidden aria-hidden="true">
+      </div>
+      <div class="formfoot"><small>We reply by email within two business days.</small><button class="btn primary" type="submit">Request my quote</button></div>
+      <p class="formmsg" id="quote-msg" role="status" hidden></p>
+    </form>
+  </section>
+</main>
+</body>
+</html>
