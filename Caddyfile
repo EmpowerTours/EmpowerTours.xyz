@@ -39,7 +39,7 @@
 		file_server
 	}
 	handle /start {
-		rewrite * /index.html
+		rewrite * /start.html
 		file_server
 	}
 	handle {

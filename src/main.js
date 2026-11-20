@@ -199,15 +199,6 @@ function wireForms(){
   });
 }
 
-// /start?brief=… arrives from the Claude project scoper.
-function prefillBrief(){
-  if(location.pathname.replace(/\/+$/,'')!=='/start')return;
-  const brief=new URLSearchParams(location.search).get('brief');
-  const inq=document.getElementById('inq');
-  if(brief){document.getElementById('i-msg').value=brief.slice(0,8000);inq.dataset.source='scoper'}
-  document.getElementById('contact').scrollIntoView();
-}
-
 /* main mountain */
 const mcv=document.getElementById('mtnCv');
 const R=makeRenderer(mcv,{zoom:1.05,base:innerWidth<980?.8:.68});
@@ -332,4 +323,4 @@ function runIntro(){
 })();
 select(0);requestAnimationFrame(frame);
 if(!seenIntro()){runIntro();markIntro()}else{document.getElementById('intro').style.display='none'}
-loadGitHub();wireForms();prefillBrief();
+loadGitHub();wireForms();
