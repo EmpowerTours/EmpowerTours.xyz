@@ -1,10 +1,14 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
 	"crypto/subtle"
 	"crypto/tls"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -441,12 +445,19 @@ func (h *SiteHandler) ListApplications(w http.ResponseWriter, r *http.Request) {
 
 // ---------- Owner notification by email (optional) ----------
 
-// SiteSMTP sends a copy of each inquiry to the owner. Disabled unless all fields are set.
+// SiteSMTP sends a copy of each inquiry to the owner. Disabled unless a transport and To are set.
+// Railway's Hobby plan blocks outbound SMTP, so when RelayURL is set mail goes over HTTPS to a
+// signed PHP relay on the cPanel host (public_html/et-mail-relay.php) instead of port 465.
 type SiteSMTP struct {
-	Host, User, Pass, To string // implicit TLS on port 465
+	Host, User, Pass, To  string // implicit TLS on port 465
+	RelayURL, RelaySecret string
 }
 
-func (s SiteSMTP) ready() bool { return s.Host != "" && s.User != "" && s.Pass != "" && s.To != "" }
+func (s SiteSMTP) relay() bool { return s.RelayURL != "" && len(s.RelaySecret) >= 32 }
+
+func (s SiteSMTP) ready() bool {
+	return s.To != "" && (s.relay() || (s.Host != "" && s.User != "" && s.Pass != ""))
+}
 
 // send runs in the background; failures are logged, never shown to the visitor (the row is already stored).
 func (s SiteSMTP) send(replyTo, subject, body string) {
@@ -455,10 +466,44 @@ func (s SiteSMTP) send(replyTo, subject, body string) {
 	}
 }
 
+var relayClient = &http.Client{Timeout: 20 * time.Second}
+
+// deliverRelay POSTs the message as JSON signed with HMAC-SHA256 over "<unix ts>\n<body>".
+func (s SiteSMTP) deliverRelay(fromName, to, replyTo, subject, body string) error {
+	payload, err := json.Marshal(map[string]string{"to": to, "reply_to": replyTo, "from_name": fromName, "subject": subject, "body": body})
+	if err != nil {
+		return err
+	}
+	ts := strconv.FormatInt(time.Now().Unix(), 10)
+	mac := hmac.New(sha256.New, []byte(s.RelaySecret))
+	mac.Write([]byte(ts + "\n"))
+	mac.Write(payload)
+	req, err := http.NewRequest(http.MethodPost, s.RelayURL, bytes.NewReader(payload))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Relay-Ts", ts)
+	req.Header.Set("X-Relay-Sig", hex.EncodeToString(mac.Sum(nil)))
+	resp, err := relayClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("relay: %w", err)
+	}
+	defer resp.Body.Close()
+	msg, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("relay: %d %s", resp.StatusCode, strings.TrimSpace(string(msg)))
+	}
+	return nil
+}
+
 // deliver sends one plain-text message from our address (s.User) to `to`.
 func (s SiteSMTP) deliver(fromName, to, replyTo, subject, body string) error {
 	if strings.ContainsAny(fromName+to+replyTo+subject, "\r\n") {
 		return errors.New("header value contains a line break") // never let visitor input reach a header line
+	}
+	if s.relay() {
+		return s.deliverRelay(fromName, to, replyTo, subject, body)
 	}
 	msg := "From: " + fromName + " <" + s.User + ">\r\nTo: " + to + "\r\nReply-To: " + replyTo +
 		"\r\nSubject: " + mime.QEncoding.Encode("utf-8", subject) + "\r\nDate: " + time.Now().Format(time.RFC1123Z) +

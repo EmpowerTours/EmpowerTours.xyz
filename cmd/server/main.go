@@ -146,7 +146,7 @@ func main() {
 		GitHubUser:  "EmpowerTours",
 		GitHubToken: os.Getenv("GITHUB_TOKEN"),
 		AdminToken:  os.Getenv("SITE_ADMIN_TOKEN"),
-		SMTP:        handlers.SiteSMTP{Host: os.Getenv("SITE_SMTP_HOST"), User: os.Getenv("SITE_SMTP_USER"), Pass: os.Getenv("SITE_SMTP_PASS"), To: os.Getenv("SITE_NOTIFY_TO")},
+		SMTP:        handlers.SiteSMTP{Host: os.Getenv("SITE_SMTP_HOST"), User: os.Getenv("SITE_SMTP_USER"), Pass: os.Getenv("SITE_SMTP_PASS"), To: os.Getenv("SITE_NOTIFY_TO"), RelayURL: os.Getenv("SITE_MAIL_RELAY_URL"), RelaySecret: os.Getenv("SITE_MAIL_RELAY_SECRET")},
 		Client:      &http.Client{Timeout: 20 * time.Second},
 	}
 	if key := os.Getenv("ANTHROPIC_API_KEY"); key != "" {
