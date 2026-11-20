@@ -67,6 +67,7 @@ func main() {
 	r := chi.NewRouter()
 
 	// Middleware
+	r.Use(handlers.RedactQuoteToken) // before Logger: keeps single-use review tokens out of logs
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.RequestID)
@@ -148,6 +149,9 @@ func main() {
 		SMTP:        handlers.SiteSMTP{Host: os.Getenv("SITE_SMTP_HOST"), User: os.Getenv("SITE_SMTP_USER"), Pass: os.Getenv("SITE_SMTP_PASS"), To: os.Getenv("SITE_NOTIFY_TO")},
 		Client:      &http.Client{Timeout: 20 * time.Second},
 	}
+	if key := os.Getenv("ANTHROPIC_API_KEY"); key != "" {
+		siteHandler.Drafter = handlers.NewClaudeDrafter(key)
+	}
 	siteFormLimiter := appMw.NewRateLimiter(6, time.Hour)
 	r.Get("/api/v1/site/github", siteHandler.GitHub)
 	r.With(siteFormLimiter.Middleware).Post("/api/v1/site/inquiry", siteHandler.Inquiry)
@@ -155,6 +159,11 @@ func main() {
 	siteAdminLimiter := appMw.NewRateLimiter(30, time.Hour)
 	r.With(siteAdminLimiter.Middleware).Get("/api/v1/site/admin/inquiries", siteHandler.ListInquiries)
 	r.With(siteAdminLimiter.Middleware).Get("/api/v1/site/admin/applications", siteHandler.ListApplications)
+	r.With(siteFormLimiter.Middleware).Post("/api/v1/site/quote-request", siteHandler.QuoteRequest)
+	r.With(siteAdminLimiter.Middleware).Get("/api/v1/site/admin/pricing", siteHandler.GetPricing)
+	r.With(siteAdminLimiter.Middleware).Put("/api/v1/site/admin/pricing", siteHandler.PutPricing)
+	r.With(siteAdminLimiter.Middleware).Get("/api/v1/site/admin/quotes/{id}", siteHandler.QuotePage)
+	r.With(siteAdminLimiter.Middleware).Post("/api/v1/site/admin/quotes/{id}", siteHandler.QuoteAction)
 
 	r.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.Dir(staticDir))))
 	r.Handle("/_expo/*", http.StripPrefix("/_expo/", http.FileServer(http.Dir(filepath.Join(appDir, "_expo")))))

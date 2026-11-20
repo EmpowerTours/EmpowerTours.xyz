@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"mime"
 	"net"
 	"net/http"
 	"net/mail"
@@ -33,7 +34,10 @@ type SiteHandler struct {
 	AdminToken  string // SITE_ADMIN_TOKEN; empty disables the read endpoints
 	SMTP        SiteSMTP
 	Client      *http.Client
+	Drafter     QuoteDrafter // nil (no ANTHROPIC_API_KEY) disables AI quote drafts
 
+	mailer    siteMailer     // tests replace SMTP with a stub
+	bg        sync.WaitGroup // background quote drafting
 	mu        sync.Mutex
 	cached    []byte
 	cachedAt  time.Time
@@ -446,44 +450,51 @@ func (s SiteSMTP) ready() bool { return s.Host != "" && s.User != "" && s.Pass !
 
 // send runs in the background; failures are logged, never shown to the visitor (the row is already stored).
 func (s SiteSMTP) send(replyTo, subject, body string) {
-	if strings.ContainsAny(replyTo+subject, "\r\n") {
-		return // never let visitor input reach a header line
+	if err := s.deliver("EmpowerTours site", s.To, replyTo, subject, body); err != nil {
+		log.Printf("site smtp: %v", err)
 	}
-	msg := "From: EmpowerTours site <" + s.User + ">\r\nTo: " + s.To + "\r\nReply-To: " + replyTo +
-		"\r\nSubject: " + subject + "\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n" +
+}
+
+// deliver sends one plain-text message from our address (s.User) to `to`.
+func (s SiteSMTP) deliver(fromName, to, replyTo, subject, body string) error {
+	if strings.ContainsAny(fromName+to+replyTo+subject, "\r\n") {
+		return errors.New("header value contains a line break") // never let visitor input reach a header line
+	}
+	msg := "From: " + fromName + " <" + s.User + ">\r\nTo: " + to + "\r\nReply-To: " + replyTo +
+		"\r\nSubject: " + mime.QEncoding.Encode("utf-8", subject) + "\r\nDate: " + time.Now().Format(time.RFC1123Z) +
+		"\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n" +
 		strings.ReplaceAll(body, "\n", "\r\n")
 	conn, err := tls.DialWithDialer(&net.Dialer{Timeout: 15 * time.Second}, "tcp", net.JoinHostPort(s.Host, "465"), &tls.Config{ServerName: s.Host, MinVersion: tls.VersionTLS12})
 	if err != nil {
-		log.Printf("site smtp dial: %v", err)
-		return
+		return fmt.Errorf("dial: %w", err)
 	}
 	defer conn.Close()
 	conn.SetDeadline(time.Now().Add(30 * time.Second))
 	c, err := smtp.NewClient(conn, s.Host)
 	if err != nil {
-		log.Printf("site smtp client: %v", err)
-		return
+		return fmt.Errorf("client: %w", err)
 	}
 	defer c.Close()
 	steps := []func() error{
 		func() error { return c.Auth(smtp.PlainAuth("", s.User, s.Pass, s.Host)) },
 		func() error { return c.Mail(s.User) },
-		func() error { return c.Rcpt(s.To) },
+		func() error { return c.Rcpt(to) },
 	}
 	for _, f := range steps {
 		if err := f(); err != nil {
-			log.Printf("site smtp: %v", err)
-			return
+			return err
 		}
 	}
 	wc, err := c.Data()
 	if err != nil {
-		log.Printf("site smtp data: %v", err)
-		return
+		return fmt.Errorf("data: %w", err)
 	}
 	if _, err := wc.Write([]byte(msg)); err != nil {
-		log.Printf("site smtp write: %v", err)
+		wc.Close()
+		return fmt.Errorf("write: %w", err)
 	}
-	wc.Close()
-	c.Quit()
+	if err := wc.Close(); err != nil {
+		return fmt.Errorf("data close: %w", err)
+	}
+	return c.Quit()
 }
