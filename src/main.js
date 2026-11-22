@@ -312,15 +312,6 @@ function runIntro(){
   requestAnimationFrame(step);
 }
 
-(function(){
-  const notes={pr:["Quote","Each task gets a fixed price before work starts. You pay only when you merge its pull request, so you never pay for time you can't check or work you didn't accept."],
-               hr:["Hours","An hourly rate drawn from your balance. Simple to start, but nobody can really check hours spent on code, so we only offer it for open-ended support."]};
-  document.querySelectorAll('.toggle button').forEach(b=>b.addEventListener('click',()=>{
-    document.querySelectorAll('.toggle button').forEach(x=>x.setAttribute('aria-pressed',x===b));
-    const n=notes[b.dataset.m];document.getElementById('qcol').textContent=n[0];document.getElementById('pnote').textContent=n[1];
-    const rows=document.querySelectorAll('#lrows tr td:nth-child(3)');const v=b.dataset.m==='pr'?['120 MON','200 MON','150 MON']:['6 h · 120 MON','10 h · 200 MON','est. 7.5 h'];
-    rows.forEach((td,i)=>td.textContent=v[i]);}));
-})();
 select(0);requestAnimationFrame(frame);
 if(!seenIntro()){runIntro();markIntro()}else{document.getElementById('intro').style.display='none'}
 loadGitHub();wireForms();

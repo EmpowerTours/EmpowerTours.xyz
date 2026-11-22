@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>EmpowerTours · software studio, Guerrero MX</title>
-<meta name="description" content="EmpowerTours builds and runs live apps: AI agents for Dubai and on-chain products on Monad. Try every app on the page, then hire us per merged task.">
+<meta name="description" content="EmpowerTours builds and runs live apps: AI agents for Dubai and on-chain products on Monad. Try every app on the page, then send us your idea for a fixed-price quote.">
 <link rel="canonical" href="https://www.empowertours.xyz/">
 <meta name="theme-color" content="#080D24">
 <meta property="og:type" content="website">
@@ -126,31 +126,47 @@
   </div>
 </section><section id="hire">
   <div class="wrap">
-    <div class="eyebrow"><b>05</b> Hire us on your repo · coming next</div>
-    <h2>Pay per merged task, not per hour.</h2>
-    <p class="lede">Connect your GitHub, fund a project balance in MON, and we ship pull requests into your repo. You merge what you accept; only accepted work is paid.</p>
+    <div class="eyebrow"><b>05</b> We build it for you</div>
+    <h2>Your app, built and run for you.</h2>
+    <p class="lede">Describe what you need, get a fixed price, and we build it, host it and keep it running. You don't need a GitHub account, a developer or any crypto.</p>
     <div class="steps">
-      <div class="step"><span class="n">step 1 · github</span><h3>Connect your repo</h3><p>Install the EmpowerTours GitHub App on the repos you pick. We never ask for your password, and you can revoke access in one click.</p></div>
-      <div class="step"><span class="n">step 2 · balance</span><h3>Fund the project</h3><p>Deposit MON into the project's escrow contract. The balance is on-chain and visible; unused funds withdraw back to you at any time.</p></div>
-      <div class="step"><span class="n">step 3 · ship</span><h3>Merge and release</h3><p>We quote each task, open a PR, you review and merge. The merge releases that task's payment. Nothing else moves your money.</p></div>
+      <div class="step"><span class="n">step 1 · describe</span><h3>Scope it in 15 minutes</h3><p>The Scoper asks what a developer would ask: who uses it, which screens, how people pay, what language. Your draft saves as you type.</p></div>
+      <div class="step"><span class="n">step 2 · quote</span><h3>Get a fixed price</h3><p>A person reviews every spec and sends you a fixed price within two business days, with any open questions answered first.</p></div>
+      <div class="step"><span class="n">step 3 · build</span><h3>Pay, then we build</h3><p>We agree on the checks your app must pass. You follow it on a private preview link and accept it before launch. If we can't deliver a version that passes, you get a full refund.</p></div>
+      <div class="step"><span class="n">step 4 · run</span><h3>We keep it running</h3><p>A monthly plan covers hosting, your domain, backups and security updates. New features and changes get their own fixed price, paid before work starts.</p></div>
     </div>
-    <div class="toggle" role="group" aria-label="Pricing model">
-      <button type="button" aria-pressed="true" data-m="pr">Fixed price per task</button>
-      <button type="button" aria-pressed="false" data-m="hr">Per hour</button>
+    <div class="priceband">
+      <div class="pcard">
+        <h3>What your quote includes</h3>
+        <p class="sub">Every project is priced on its own spec. You see the full price before you pay anything.</p>
+        <ul class="incl">
+          <li><b>What we will build</b> for the first version, item by item</li>
+          <li><b>One fixed price</b> for that version, in your currency, taxes included</li>
+          <li><b>The monthly plan</b> for hosting, domain, backups and security updates</li>
+          <li><b>The checks it must pass</b> before launch, and the refund if it doesn't</li>
+          <li><b>Any questions</b> we need answered before we start</li>
+        </ul>
+      </div>
+      <div class="pcard quote">
+        <h3>Example</h3>
+        <p class="sub">A tour company's booking app · sample</p>
+        <ul>
+          <li>Tour list and booking form</li>
+          <li>Email login for customers</li>
+          <li>30% deposit by CoDi when booking</li>
+          <li>Spanish, built for phones</li>
+        </ul>
+        <p class="price-note" style="margin-top:14px">Quoted within two business days of the spec arriving.</p>
+        <p class="price-note"><span class="pill wait">quoted · awaiting OK</span></p>
+      </div>
     </div>
-    <p class="price-note" id="pnote">Each task gets a fixed price before work starts. You pay only when you merge its pull request, so you never pay for time you can't check or work you didn't accept.</p>
-    <div class="hero-actions" style="margin-top:22px"><a class="btn primary" id="scoper1" href="https://claude.ai/artifact/GM7YqCURd78cW85gQVzLvE" target="_blank" rel="noopener">Scope your project with Claude ↗</a><a class="btn" href="#contact">Or send a short brief</a></div>
-    <p class="price-note" style="font-size:13px">The scoper runs on your own Claude plan: Claude splits your idea into priced, PR-sized tasks and sends us the brief. Free for you, no API key.</p>
-    <div class="ledger">
-      <table>
-        <caption>Example project ledger · sample data</caption>
-        <thead><tr><th>Task</th><th>Pull request</th><th id="qcol">Quote</th><th>Status</th></tr></thead>
-        <tbody id="lrows">
-          <tr><td>Passkey sign-in</td><td>#41</td><td>120 MON</td><td><span class="pill ok">merged · paid</span></td></tr>
-          <tr><td>Checkout with CoDi</td><td>#44</td><td>200 MON</td><td><span class="pill open">in review</span></td></tr>
-          <tr><td>Admin dashboard</td><td>—</td><td>150 MON</td><td><span class="pill wait">quoted · awaiting OK</span></td></tr>
-        </tbody>
-      </table>
+    <div class="hero-actions" style="margin-top:28px"><a class="btn primary" id="scoper1" href="https://claude.ai/artifact/GM7YqCURd78cW85gQVzLvE" target="_blank" rel="noopener">Scope your project ↗</a><a class="btn" href="#contact">Or send a short brief</a></div>
+    <p class="price-note" style="font-size:13px">The Scoper is free and runs in your own Claude account. When you send it, the spec opens on our site for you to confirm.</p>
+    <div class="faq">
+      <div><h3>Why not just ask an AI to build it?</h3><p>You can try. Getting it online, taking payments, fixing it when it breaks and keeping it secure is the work we do, and you get one fixed price and one person to answer for it.</p></div>
+      <div><h3>Do I own it?</h3><p>Yes. The code and the hosting project are yours. If you leave, we hand both over.</p></div>
+      <div><h3>What if I already have code?</h3><p>Send the link with your brief. We quote changes to an existing project the same way, as fixed-price tasks.</p></div>
+      <div><h3>What happens after launch?</h3><p>The monthly plan keeps it online and patched. Anything new, including bug fixes, is quoted as its own fixed-price task.</p></div>
     </div>
   </div>
 </section><section id="contact">
