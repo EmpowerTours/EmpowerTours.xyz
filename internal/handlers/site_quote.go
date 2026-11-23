@@ -674,7 +674,7 @@ func (h *SiteHandler) finishQuote(id, inquiryID int64, spec quoteSpec, specText 
 		log.Printf("quote #%d stored; SMTP not configured, no review link sent", id)
 		return
 	}
-	link := "https://api.empowertours.xyz/api/v1/site/admin/quotes/" + strconv.FormatInt(id, 10) + "?t=" + token
+	link := siteAPIBase + "/api/v1/site/admin/quotes/" + strconv.FormatInt(id, 10) + "?t=" + token
 	var b strings.Builder
 	fmt.Fprintf(&b, "New scoped quote #%d (inquiry #%d)\n\n", id, inquiryID)
 	fmt.Fprintf(&b, "Client: %s <%s>\nCountry: %s\nRegion: %s (%s)\nPoints: %d\nCredits: %d\nPrice: %s\nMonthly: %s\nManual: %v\n",
@@ -757,11 +757,12 @@ func (h *SiteHandler) PutPricing(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, p)
 }
 
-// RedactQuoteToken keeps the single-use review token out of request logs. It must run
-// before the request logger; handlers read r.URL, which is left untouched.
+// RedactQuoteToken keeps quote tokens (owner review, client accept, owner pay-verify) out
+// of request logs. It must run before the request logger; handlers read r.URL, which is
+// left untouched.
 func RedactQuoteToken(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasPrefix(r.URL.Path, "/api/v1/site/admin/quotes/") && r.URL.RawQuery != "" {
+		if (strings.HasPrefix(r.URL.Path, "/api/v1/site/admin/quotes/") || strings.HasPrefix(r.URL.Path, "/api/v1/site/quotes/")) && r.URL.RawQuery != "" {
 			r.RequestURI = r.URL.Path + "?t=REDACTED"
 		}
 		next.ServeHTTP(w, r)

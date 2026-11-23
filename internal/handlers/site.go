@@ -39,6 +39,8 @@ type SiteHandler struct {
 	SMTP        SiteSMTP
 	Client      *http.Client
 	Drafter     QuoteDrafter // nil (no ANTHROPIC_API_KEY) disables AI quote drafts
+	Pay         SitePay      // where accepted quotes are paid by SPEI/CoDi
+	CEP         *CEPClient   // nil uses Banxico's public CEP portal
 
 	mailer    siteMailer     // tests replace SMTP with a stub
 	bg        sync.WaitGroup // background quote drafting

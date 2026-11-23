@@ -234,9 +234,16 @@ func (h *SiteHandler) sendQuote(w http.ResponseWriter, r *http.Request, row *quo
 		renderQuotePage(w, http.StatusServiceUnavailable, quotePageData{quoteRow: quoteRow{ID: row.ID}, Message: "Email is not configured on the server. Nothing was sent; the link still works."})
 		return
 	}
+	// The client's accept token goes out in the email only; sent_body keeps the text
+	// without the link, which is what the acceptance hash covers.
+	clientTok, clientHash, err := newApproveToken()
+	if err != nil {
+		http.Error(w, "not saved", http.StatusInternalServerError)
+		return
+	}
 	// Claim the quote first so two concurrent POSTs cannot both send.
 	res, err := h.DB.Exec(`UPDATE site_quotes SET status = 'sent', sent_at = CURRENT_TIMESTAMP, credits = ?, price = ?, monthly = ?,
-		sent_subject = ?, sent_body = ? WHERE id = ? AND status = 'draft'`, credits, price, monthly, subject, body, row.ID)
+		sent_subject = ?, sent_body = ?, client_token_hash = ? WHERE id = ? AND status = 'draft'`, credits, price, monthly, subject, body, clientHash, row.ID)
 	if err != nil {
 		http.Error(w, "not saved", http.StatusInternalServerError)
 		return
@@ -245,9 +252,9 @@ func (h *SiteHandler) sendQuote(w http.ResponseWriter, r *http.Request, row *quo
 		renderQuotePage(w, http.StatusGone, quotePageData{quoteRow: quoteRow{ID: row.ID}, Message: "This link has already been used."})
 		return
 	}
-	if err := m.deliver("EmpowerTours", row.Email, h.SMTP.To, subject, body); err != nil {
+	if err := m.deliver("EmpowerTours", row.Email, h.SMTP.To, subject, body+"\n\n"+acceptLine(row.Lang, acceptLink(row.ID, clientTok))); err != nil {
 		log.Printf("quote #%d: client email failed: %v", row.ID, err)
-		h.DB.Exec(`UPDATE site_quotes SET status = 'draft', sent_at = NULL WHERE id = ? AND status = 'sent'`, row.ID)
+		h.DB.Exec(`UPDATE site_quotes SET status = 'draft', sent_at = NULL, client_token_hash = '' WHERE id = ? AND status = 'sent'`, row.ID)
 		renderQuotePage(w, http.StatusBadGateway, quotePageData{quoteRow: quoteRow{ID: row.ID}, Message: "The email did not go out. Nothing was sent; go back and try again."})
 		return
 	}

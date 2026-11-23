@@ -16,7 +16,7 @@ func siteTestDB(t *testing.T) *sqlx.DB {
 	t.Helper()
 	db := sqlx.MustConnect("sqlite3", ":memory:")
 	db.SetMaxOpenConns(1)
-	for _, f := range []string{"022_site_inbox.sql", "023_site_quotes.sql"} {
+	for _, f := range []string{"022_site_inbox.sql", "023_site_quotes.sql", "024_site_quote_accept_pay.sql"} {
 		sql, err := os.ReadFile("../database/migrations/" + f)
 		if err != nil {
 			t.Fatal(err)
