@@ -484,7 +484,7 @@ func TestQuoteSendSpendsToken(t *testing.T) {
 		t.Fatal("client email not sent")
 	}
 	c := m.sent[len(m.sent)-1]
-	if c.to != "ana@example.com" || c.replyTo != "owner@example.com" || c.body != "Hola Ana,\nPrecio MXN 22,950." || c.fromName != "EmpowerTours" {
+	if c.to != "ana@example.com" || c.replyTo != "owner@example.com" || !strings.HasPrefix(c.body, "Hola Ana,\nPrecio MXN 22,950.\n\n") || c.fromName != "EmpowerTours" {
 		t.Errorf("client email: %+v", c)
 	}
 	var status, sentAt string

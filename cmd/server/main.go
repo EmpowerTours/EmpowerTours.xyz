@@ -148,6 +148,8 @@ func main() {
 		AdminToken:  os.Getenv("SITE_ADMIN_TOKEN"),
 		SMTP:        handlers.SiteSMTP{Host: os.Getenv("SITE_SMTP_HOST"), User: os.Getenv("SITE_SMTP_USER"), Pass: os.Getenv("SITE_SMTP_PASS"), To: os.Getenv("SITE_NOTIFY_TO"), RelayURL: os.Getenv("SITE_MAIL_RELAY_URL"), RelaySecret: os.Getenv("SITE_MAIL_RELAY_SECRET")},
 		Client:      &http.Client{Timeout: 20 * time.Second},
+		// Beneficiary for accepted quotes; the CLABE is checksum-validated here (warning, never the value).
+		Pay: handlers.NewSitePay(os.Getenv("SITE_PAY_CLABE"), os.Getenv("SITE_PAY_NAME"), os.Getenv("SITE_PAY_BANK")),
 	}
 	if key := os.Getenv("ANTHROPIC_API_KEY"); key != "" {
 		siteHandler.Drafter = handlers.NewClaudeDrafter(key)
@@ -164,6 +166,10 @@ func main() {
 	r.With(siteAdminLimiter.Middleware).Put("/api/v1/site/admin/pricing", siteHandler.PutPricing)
 	r.With(siteAdminLimiter.Middleware).Get("/api/v1/site/admin/quotes/{id}", siteHandler.QuotePage)
 	r.With(siteAdminLimiter.Middleware).Post("/api/v1/site/admin/quotes/{id}", siteHandler.QuoteAction)
+	r.With(siteAdminLimiter.Middleware).Get("/api/v1/site/quotes/{id}/accept", siteHandler.AcceptPage)
+	r.With(siteFormLimiter.Middleware).Post("/api/v1/site/quotes/{id}/accept", siteHandler.Accept)
+	r.With(siteAdminLimiter.Middleware).Get("/api/v1/site/admin/quotes/{id}/pay", siteHandler.PayPage)
+	r.With(siteAdminLimiter.Middleware).Post("/api/v1/site/admin/quotes/{id}/pay", siteHandler.PayAction)
 
 	r.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.Dir(staticDir))))
 	r.Handle("/_expo/*", http.StripPrefix("/_expo/", http.FileServer(http.Dir(filepath.Join(appDir, "_expo")))))
