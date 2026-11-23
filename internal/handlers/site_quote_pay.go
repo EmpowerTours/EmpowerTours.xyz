@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"html/template"
@@ -120,7 +121,10 @@ func (h *SiteHandler) payQuoteByToken(idParam, token string, kind tokenKind) (*p
 
 // quoteDocHash is the acceptance receipt: sha256 over the quote exactly as sent.
 func quoteDocHash(id int64, currency string, price, monthly int, subject, body string) string {
-	sum := sha256.Sum256([]byte(fmt.Sprintf("%d|%s|%d|%d|%s|%s", id, currency, price, monthly, subject, body)))
+	// JSON array encoding is unambiguous: a "|" or quote inside subject/body
+	// cannot make two different documents hash the same.
+	doc, _ := json.Marshal([]any{id, currency, price, monthly, subject, body})
+	sum := sha256.Sum256(doc)
 	return hex.EncodeToString(sum[:])
 }
 

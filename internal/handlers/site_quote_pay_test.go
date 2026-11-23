@@ -212,12 +212,15 @@ func TestNewSitePayDropsInvalidCLABEWithoutLoggingIt(t *testing.T) {
 
 func TestQuoteDocHashStable(t *testing.T) {
 	a := quoteDocHash(1, "MXN", 22950, 499, "Tu cotización", "Hola\nAna")
-	sum := sha256.Sum256([]byte("1|MXN|22950|499|Tu cotización|Hola\nAna"))
+	sum := sha256.Sum256([]byte(`[1,"MXN",22950,499,"Tu cotización","Hola\nAna"]`))
 	if a != hex.EncodeToString(sum[:]) || a != quoteDocHash(1, "MXN", 22950, 499, "Tu cotización", "Hola\nAna") {
 		t.Fatalf("hash %s", a)
 	}
 	if a == quoteDocHash(1, "MXN", 22951, 499, "Tu cotización", "Hola\nAna") || a == quoteDocHash(1, "MXN", 22950, 499, "Tu cotización", "Hola\nAna.") {
 		t.Fatal("hash ignores a field")
+	}
+	if quoteDocHash(1, "MXN", 1, 1, "a|b", "c") == quoteDocHash(1, "MXN", 1, 1, "a", "b|c") {
+		t.Fatal("hash is ambiguous across the subject/body boundary")
 	}
 }
 
